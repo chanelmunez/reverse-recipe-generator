@@ -1,6 +1,7 @@
 import type { FoodIntelligenceReport } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { CheckCircle, XCircle, Star } from "lucide-react"
 
 interface ReportDisplayProps {
   report: FoodIntelligenceReport
@@ -9,6 +10,13 @@ interface ReportDisplayProps {
 export function ReportDisplay({ report }: ReportDisplayProps) {
   const isNutritionEnabled = report.nutritionalProfile.calories > 0
   const isCostEnabled = report.costBreakdown.totalCost > 0
+  const analysis = report.fitnessGoalAnalysis
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return "text-green-500"
+    if (score >= 50) return "text-yellow-500"
+    return "text-red-500"
+  }
 
   return (
     <main className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -99,28 +107,59 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Fitness Goal Analysis</CardTitle>
+            <CardTitle>AI Health & Fitness Analysis</CardTitle>
           </CardHeader>
-          <CardContent>
-            {isNutritionEnabled ? (
-              <>
-                <p className="mb-2">
-                  Your estimated TDEE is <strong>{report.fitnessGoalAnalysis.tdee.toFixed(0)} calories</strong>.
-                </p>
-                <p className="mb-4">
-                  For your goal, your target is around{" "}
-                  <strong>{report.fitnessGoalAnalysis.goalCalories.toFixed(0)} calories</strong> per day.
-                </p>
-                <p className="text-lg p-4 bg-secondary rounded-md">{report.fitnessGoalAnalysis.feedback}</p>
-              </>
-            ) : (
-              <p className="text-muted-foreground">Fitness analysis requires nutritional data.</p>
-            )}
+          <CardContent className="space-y-6">
+            <div className="text-center p-6 bg-secondary rounded-lg">
+              <div className="text-sm text-muted-foreground">Meal Health Score</div>
+              <div className={`text-6xl font-bold ${getScoreColor(analysis.healthScore)}`}>
+                {analysis.healthScore}
+                <span className="text-3xl">/100</span>
+              </div>
+              <p className="text-lg mt-2">{analysis.mealSummary}</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="font-semibold text-lg mb-2 flex items-center">
+                  <CheckCircle className="w-5 h-5 mr-2 text-green-500" />
+                  Positive Points
+                </h3>
+                <ul className="list-disc list-inside space-y-1 pl-4">
+                  {analysis.positivePoints.map((point, i) => (
+                    <li key={i}>{point}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg mb-2 flex items-center">
+                  <XCircle className="w-5 h-5 mr-2 text-red-500" />
+                  Areas for Improvement
+                </h3>
+                <ul className="list-disc list-inside space-y-1 pl-4">
+                  {analysis.areasForImprovement.map((point, i) => (
+                    <li key={i}>{point}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-lg mb-2 flex items-center">
+                <Star className="w-5 h-5 mr-2 text-yellow-500" />
+                Personalized Tips
+              </h3>
+              <ul className="list-disc list-inside space-y-1 pl-4">
+                {analysis.generalTips.map((tip, i) => (
+                  <li key={i}>{tip}</li>
+                ))}
+              </ul>
+            </div>
           </CardContent>
         </Card>
 
         {report.debugInfo && (
-          <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
+          <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="item-1">
               <AccordionTrigger>API Debug Output</AccordionTrigger>
               <AccordionContent>

@@ -1,10 +1,25 @@
 import { NextResponse } from "next/server"
 import { getRecipeFromImage } from "@/lib/apis/vision"
 import { analyzeRecipeWithSpoonacular } from "@/lib/apis/spoonacular"
-import { analyzeFitnessGoals } from "@/lib/core/fitness-analyzer"
+import { getAIHealthAnalysis } from "@/lib/analysis/health-analyzer" // UPDATED IMPORT
 import type { UserProfile, ApiResponse, FoodIntelligenceReport, ErrorResponse } from "@/types"
 
 export const maxDuration = 60
+
+function normalizeProfileToMetric(profile: UserProfile): UserProfile {
+  if (profile.unitSystem === "imperial") {
+    const weightInLbs = profile.weight || 0
+    const heightInFeet = profile.height || 0
+    const heightInInches = profile.heightInches || 0
+    const LBS_TO_KG = 0.453592
+    const INCHES_TO_CM = 2.54
+    const weightInKg = weightInLbs * LBS_TO_KG
+    const totalInches = heightInFeet * 12 + heightInInches
+    const heightInCm = totalInches * INCHES_TO_CM
+    return { ...profile, weight: weightInKg, height: heightInCm, heightInches: 0 }
+  }
+  return profile
+}
 
 async function fileToBuffer(file: File): Promise<Buffer> {
   const arrayBuffer = await file.arrayBuffer()
@@ -27,7 +42,6 @@ export async function POST(request: Request) {
     const imageBuffer = await fileToBuffer(imageFile)
     const imageUrl = `data:${imageFile.type};base64,${imageBuffer.toString("base64")}`
 
-    // --- Step 1: Generate Recipe from Image using OpenAI Vision ---
     debugLog.push("Attempting to generate recipe from image with OpenAI Vision...")
     const visionResponse = await getRecipeFromImage(imageBuffer)
     if (!visionResponse?.recipe) {
@@ -35,14 +49,16 @@ export async function POST(request: Request) {
     }
     debugLog.push(`[OpenAI Vision] Generated recipe for: ${visionResponse.recipe.name}`)
 
-    // --- Step 2: Analyze the AI-generated recipe with Spoonacular ---
     const { recipe, nutritionalProfile, costBreakdown } = await analyzeRecipeWithSpoonacular(
       visionResponse.recipe,
       debugLog,
     )
 
-    // --- Step 3: Final Report Assembly ---
-    const fitnessGoalAnalysis = analyzeFitnessGoals(userProfile, nutritionalProfile)
+    debugLog.push(`Normalizing profile from ${userProfile.unitSystem} to metric...`)
+    const metricProfile = normalizeProfileToMetric(userProfile)
+
+    // UPDATED: Call the new AI-powered health analyzer
+    const fitnessGoalAnalysis = await getAIHealthAnalysis(metricProfile, nutritionalProfile, debugLog)
 
     const report: FoodIntelligenceReport = {
       id: crypto.randomUUID(),

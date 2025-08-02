@@ -1,14 +1,17 @@
 export type Sex = "male" | "female"
 export type ActivityLevel = "sedentary" | "light" | "moderate" | "active" | "very_active"
 export type FitnessGoal = "weight_loss" | "maintenance" | "muscle_gain"
+export type UnitSystem = "metric" | "imperial"
 
 export interface UserProfile {
   age: number | null
   weight: number | null
   height: number | null
+  heightInches?: number | null
   sex: Sex | ""
   activityLevel: ActivityLevel | ""
   fitnessGoal: FitnessGoal | ""
+  unitSystem: UnitSystem
 }
 
 export interface Recipe {
@@ -32,10 +35,13 @@ export interface CostBreakdown {
   perServing: number
 }
 
+// NEW: Updated to hold the AI-generated health analysis
 export interface FitnessGoalAnalysis {
-  tdee: number
-  goalCalories: number
-  feedback: string
+  healthScore: number
+  mealSummary: string
+  positivePoints: string[]
+  areasForImprovement: string[]
+  generalTips: string[]
 }
 
 export interface FoodIntelligenceReport {

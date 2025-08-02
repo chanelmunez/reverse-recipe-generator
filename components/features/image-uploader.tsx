@@ -37,7 +37,7 @@ export function ImageUploader({ onImageUpload, disabled = false }: ImageUploader
   return (
     <Card>
       <CardHeader>
-        <CardTitle>1. Upload Meal Photo</CardTitle>
+        <CardTitle>2. Upload Meal Photo</CardTitle>
       </CardHeader>
       <CardContent>
         <Input

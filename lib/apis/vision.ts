@@ -35,8 +35,10 @@ export async function getRecipeFromImage(imageBuffer: Buffer): Promise<{ recipe:
     const { object } = await generateObject({
       model: openai("gpt-4o", { apiKey: process.env.OPENAI_API_KEY }),
       schema: RecipeSchema,
+      // FIX: Updated the system prompt to be more explicit about the JSON output format
+      // to improve the reliability of the AI's response.
       system:
-        "You are a world-class chef and food analyst. Analyze the image of a meal provided by the user. Your task is to return a likely recipe name, a list of ingredients with estimated amounts, and the preparation steps. Be concise and clear.",
+        "You are an expert food analyst. Your task is to analyze the provided image of a meal and generate a recipe for it. You must respond ONLY with a JSON object that strictly matches the provided schema. The JSON object should contain a recipe with a name, a list of ingredients (each with a name and an amount), and the preparation steps. If you cannot identify a meal in the image, you must still provide a valid JSON object with empty strings and arrays for the fields.",
       messages: [
         {
           role: "user",
@@ -53,6 +55,7 @@ export async function getRecipeFromImage(imageBuffer: Buffer): Promise<{ recipe:
     return object
   } catch (error) {
     console.error("Error getting recipe from image:", error)
+    // Re-throw the original error to be caught by the API route handler
     throw error
   }
 }
