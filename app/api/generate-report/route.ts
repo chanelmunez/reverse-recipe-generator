@@ -46,7 +46,8 @@ export async function POST(request: Request) {
     const imageUrl = `data:${imageFile.type};base64,${imageBuffer.toString("base64")}`
 
     debugLog.push("Step 1: Generating recipe from image with OpenAI Vision...")
-    const recipeFromVision = await getRecipeFromImage(imageBuffer)
+    // UPDATED: Passing the image's MIME type to the vision API
+    const recipeFromVision = await getRecipeFromImage(imageBuffer, imageFile.type)
     if (!recipeFromVision?.name) {
       throw new Error("The AI model could not generate a recipe from the image.")
     }

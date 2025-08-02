@@ -1,10 +1,11 @@
 import { generateObject } from "ai"
-import { openai } from "@/lib/ai/openai"
+import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
 
 // Define a recipe type for this module's purpose
 export type VisionRecipe = z.infer<typeof RecipeSchema>
 
+// The schema is now a flat object, which is more reliable for the AI to generate.
 const RecipeSchema = z.object({
   name: z.string().describe("The name of the dish."),
   mainIngredients: z
@@ -24,15 +25,20 @@ const RecipeSchema = z.object({
 /**
  * Analyzes an image of a meal and returns a structured recipe object.
  * @param {Buffer} imageBuffer - The buffer of the image to analyze.
+ * @param {string} mimeType - The MIME type of the image (e.g., 'image/jpeg').
  * @returns {Promise<VisionRecipe>} A promise that resolves to the recipe object.
  */
-export async function getRecipeFromImage(imageBuffer: Buffer): Promise<VisionRecipe> {
-  try {
-    const imageAsBase64 = imageBuffer.toString("base64")
+export async function getRecipeFromImage(imageBuffer: Buffer, mimeType: string): Promise<VisionRecipe> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("The OPENAI_API_KEY environment variable is not set.")
+  }
 
+  try {
     const { object } = await generateObject({
-      model: openai("gpt-4o"),
+      model: openai("gpt-4o", { apiKey: process.env.OPENAI_API_KEY }),
       schema: RecipeSchema,
+      // Force the model to use JSON mode for reliable structured output.
+      mode: "json",
       system: `
         You are a food analysis API. Your only function is to analyze an image of a meal and return a JSON object.
         Do not include any introductory text, markdown formatting, or explanations.
@@ -46,7 +52,9 @@ export async function getRecipeFromImage(imageBuffer: Buffer): Promise<VisionRec
           content: [
             {
               type: "image",
-              image: imageAsBase64,
+              // Pass the raw buffer and mimeType directly for robust handling.
+              image: imageBuffer,
+              mimeType: mimeType,
             },
           ],
         },
