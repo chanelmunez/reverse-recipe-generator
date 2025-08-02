@@ -16,9 +16,11 @@ export default function ReportPage() {
       try {
         const storedReport = localStorage.getItem(`report-${id}`)
         if (storedReport) {
-          setReport(JSON.parse(storedReport))
+          const reportData = JSON.parse(storedReport)
+          // Handle both old format (without timestamp) and new format (with timestamp)
+          setReport(reportData.timestamp ? reportData : reportData)
         } else {
-          setError("Report not found. It might have expired or was not generated correctly.")
+          setError("Report not found. It might have expired or was automatically cleaned up to free storage space.")
         }
       } catch (e) {
         setError("Failed to load the report data.")

@@ -1,7 +1,7 @@
 import { generateObject } from "ai"
 import { openai } from "@/lib/ai/openai"
 import { z } from "zod"
-import type { VisionRecipe } from "@/lib/apis/vision"
+import type { AnalyzedRecipe } from "@/lib/apis/image-analyzer"
 import type { NutritionalProfile, CostBreakdown } from "@/types"
 
 // UPDATED: Schema now includes a detailed nutrient breakdown with %DV.
@@ -47,7 +47,7 @@ type RecipeAnalysis = z.infer<typeof RecipeAnalysisSchema>
  * @returns A promise that resolves to the nutritional profile and cost breakdown.
  */
 export async function analyzeRecipeWithAI(
-  recipe: VisionRecipe,
+  recipe: AnalyzedRecipe,
   debugLog: string[],
 ): Promise<{ nutritionalProfile: NutritionalProfile; costBreakdown: CostBreakdown }> {
   debugLog.push("[AI Recipe Analysis] Starting nutritional and cost analysis...")

@@ -26,15 +26,18 @@ export async function searchForImage(query: string, debugLog: string[]): Promise
     return PLACEHOLDER_IMAGE
   }
 
-  // Construct the search URL
+  // Construct the search URL with improved parameters for better results
   const searchParams = new URLSearchParams({
     key: GOOGLE_API_KEY,
     cx: GOOGLE_CSE_ID,
-    q: query,
+    q: `${query} food ingredient`, // Add context for better food-related results
     searchType: "image",
-    num: "1", // We only need the top result
-    rights: "cc_publicdomain,cc_attribute,cc_sharealike",
+    num: "3", // Get multiple results to have fallbacks
+    rights: "cc_publicdomain,cc_attribute,cc_sharealike,cc_nonderived",
     imgSize: "medium",
+    imgType: "photo", // Prefer actual photos over graphics
+    safe: "active", // Enable safe search
+    fileType: "jpg,png,webp", // Specify supported image formats
   })
   const url = `https://www.googleapis.com/customsearch/v1?${searchParams.toString()}`
   // Redact key from log for security
@@ -50,13 +53,40 @@ export async function searchForImage(query: string, debugLog: string[]): Promise
       return PLACEHOLDER_IMAGE
     }
 
-    debugLog.push(`[Google Image Search] API Success Response: ${responseText}`)
     const data = JSON.parse(responseText)
-    const firstResult = data.items?.[0]
-    const imageUrl = firstResult?.link || PLACEHOLDER_IMAGE
+    
+    if (!data.items || data.items.length === 0) {
+      debugLog.push(`[Google Image Search] No images found for query: "${query}"`)
+      return PLACEHOLDER_IMAGE
+    }
 
-    debugLog.push(`[Google Image Search] Found image URL: ${imageUrl}`)
-    return imageUrl
+    // Try to find the best image from the results
+    let bestImageUrl = PLACEHOLDER_IMAGE
+    
+    for (const item of data.items) {
+      if (item.link && item.image) {
+        // Prefer images with thumbnails and reasonable dimensions
+        const hasGoodThumbnail = item.image.thumbnailLink && 
+                                item.image.thumbnailWidth > 100 && 
+                                item.image.thumbnailHeight > 100
+        
+        if (hasGoodThumbnail) {
+          bestImageUrl = item.image.thumbnailLink // Use thumbnail for faster loading
+          debugLog.push(`[Google Image Search] Using thumbnail: ${bestImageUrl}`)
+          break
+        } else if (item.link) {
+          bestImageUrl = item.link // Fallback to original image
+          debugLog.push(`[Google Image Search] Using original image: ${bestImageUrl}`)
+          break
+        }
+      }
+    }
+
+    if (bestImageUrl === PLACEHOLDER_IMAGE) {
+      debugLog.push(`[Google Image Search] No suitable images found, using placeholder`)
+    }
+
+    return bestImageUrl
   } catch (error) {
     const message = error instanceof Error ? error.message : "An unknown error occurred."
     debugLog.push(`[Google Image Search] Fetch failed: ${message}`)

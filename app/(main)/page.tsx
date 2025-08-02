@@ -69,7 +69,9 @@ export default function HomePage() {
       const result: ApiResponse = JSON.parse(responseText)
 
       if (result.status === "success") {
-        localStorage.setItem(`report-${result.data.id}`, JSON.stringify(result.data))
+        // Use StorageManager to handle localStorage quota automatically
+        const { StorageManager } = await import("@/lib/storage-manager")
+        StorageManager.storeReport(result.data.id, result.data)
         router.push(`/report/${result.data.id}`)
       } else {
         // This handles cases where the API returns a 200 OK status but with a logical error.
