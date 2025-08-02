@@ -1,11 +1,7 @@
 import { generateObject } from "ai"
-import { openai } from "@ai-sdk/openai"
+import { getGoogleProvider } from "@/lib/ai/google"
 import { z } from "zod"
 
-// Define a recipe type for this module's purpose
-export type VisionRecipe = z.infer<typeof RecipeSchema>
-
-// The schema is now a flat object, which is more reliable for the AI to generate.
 const RecipeSchema = z.object({
   name: z.string().describe("The name of the dish."),
   mainIngredients: z
@@ -15,29 +11,24 @@ const RecipeSchema = z.object({
     .array(
       z.object({
         name: z.string().describe("The common name of the ingredient."),
-        amount: z.string().describe("The quantity of the ingredient in common units (e.g., '1 cup', '150g')."),
+        amount: z
+          .string()
+          .describe("An estimated quantity of the ingredient for a single serving (e.g., '1 cup', '150g')."),
       }),
     )
-    .describe("A list of all ingredients with their amounts."),
+    .describe("A list of all ingredients with their estimated amounts for a single serving."),
   steps: z.array(z.string()).describe("The steps to prepare the recipe."),
 })
 
-/**
- * Analyzes an image of a meal and returns a structured recipe object.
- * @param {Buffer} imageBuffer - The buffer of the image to analyze.
- * @param {string} mimeType - The MIME type of the image (e.g., 'image/jpeg').
- * @returns {Promise<VisionRecipe>} A promise that resolves to the recipe object.
- */
-export async function getRecipeFromImage(imageBuffer: Buffer, mimeType: string): Promise<VisionRecipe> {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("The OPENAI_API_KEY environment variable is not set.")
-  }
+export type AnalyzedRecipe = z.infer<typeof RecipeSchema>
 
+export async function analyzeImageWithGemini(imageBuffer: Buffer, mimeType: string): Promise<AnalyzedRecipe> {
   try {
+    const google = getGoogleProvider()
+
     const { object } = await generateObject({
-      model: openai("gpt-4o", { apiKey: process.env.OPENAI_API_KEY }),
+      model: google("models/gemini-1.5-flash-latest"),
       schema: RecipeSchema,
-      // Force the model to use JSON mode for reliable structured output.
       mode: "json",
       system: `
         You are a food analysis API. Your only function is to analyze an image of a meal and return a JSON object.
@@ -51,8 +42,11 @@ export async function getRecipeFromImage(imageBuffer: Buffer, mimeType: string):
           role: "user",
           content: [
             {
+              type: "text",
+              text: "Analyze the attached image and provide a recipe and ingredient list.",
+            },
+            {
               type: "image",
-              // Pass the raw buffer and mimeType directly for robust handling.
               image: imageBuffer,
               mimeType: mimeType,
             },
@@ -63,7 +57,8 @@ export async function getRecipeFromImage(imageBuffer: Buffer, mimeType: string):
 
     return object
   } catch (error) {
-    console.error("Error getting recipe from image:", error)
-    throw error
+    console.error("Error in analyzeImageWithGemini:", error)
+    const message = error instanceof Error ? error.message : "An unknown error occurred during Gemini analysis."
+    throw new Error(message)
   }
 }

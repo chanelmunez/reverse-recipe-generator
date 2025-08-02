@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
-import { getRecipeFromImage } from "@/lib/apis/vision"
+import { analyzeImageWithGemini } from "@/lib/apis/image-analyzer"
 import { analyzeRecipeWithAI } from "@/lib/analysis/recipe-analyzer"
-import { searchForImage } from "@/lib/apis/google-image-search" // UPDATED
+import { searchForImage } from "@/lib/apis/google-image-search"
 import { getAIHealthAnalysis } from "@/lib/analysis/health-analyzer"
 import { getHealthierOptions } from "@/lib/analysis/ingredient-analyzer"
 import { getPurchaseLocations } from "@/lib/analysis/purchase-analyzer"
@@ -45,18 +45,16 @@ export async function POST(request: Request) {
     const imageBuffer = await fileToBuffer(imageFile)
     const imageUrl = `data:${imageFile.type};base64,${imageBuffer.toString("base64")}`
 
-    debugLog.push("Step 1: Generating recipe from image with OpenAI Vision...")
-    // UPDATED: Passing the image's MIME type to the vision API
-    const recipeFromVision = await getRecipeFromImage(imageBuffer, imageFile.type)
+    debugLog.push("Step 1: Generating recipe from image with Google Gemini...")
+    const recipeFromVision = await analyzeImageWithGemini(imageBuffer, imageFile.type)
     if (!recipeFromVision?.name) {
       throw new Error("The AI model could not generate a recipe from the image.")
     }
-    debugLog.push(`[OpenAI Vision] Identified main ingredients: ${recipeFromVision.mainIngredients.join(", ")}`)
+    debugLog.push(`[Google Gemini] Identified main ingredients: ${recipeFromVision.mainIngredients.join(", ")}`)
 
     debugLog.push("Step 2: Fetching ingredient images and analyzing recipe with AI in parallel...")
     const [aiAnalysis, mainIngredientImages] = await Promise.all([
       analyzeRecipeWithAI(recipeFromVision, debugLog),
-      // UPDATED: Reverted to using Google Image Search
       Promise.all(
         recipeFromVision.mainIngredients.map(async (name) => ({
           name,

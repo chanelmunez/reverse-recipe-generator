@@ -1,38 +1,88 @@
 export type Sex = "male" | "female"
-export type ActivityLevel = "sedentary" | "light" | "moderate" | "active" | "very_active"
+export type ActivityLevel = "sedentary" | "light" | "moderate" | "active" | "very_active" | "extra_active"
 export type FitnessGoal = "weight_loss" | "maintenance" | "muscle_gain"
+export type UnitSystem = "metric" | "imperial"
 
 export interface UserProfile {
   age: number | null
-  weight: number | null // in kg
-  height: number | null // in cm
+  weight: number | null
+  height: number | null
+  heightInches?: number | null
   sex: Sex | ""
   activityLevel: ActivityLevel | ""
   fitnessGoal: FitnessGoal | ""
+  unitSystem: UnitSystem
 }
 
 export interface Recipe {
   name: string
-  ingredients: { name: string; amount: string }[]
+  ingredients: {
+    name: string
+    amount: string
+  }[]
   steps: string[]
+  mainIngredients: {
+    name: string
+    imageUrl: string
+  }[]
+}
+
+export interface DetailedNutrient {
+  name: string
+  amount: number
+  unit: string
+  percentOfDailyNeeds: number
 }
 
 export interface NutritionalProfile {
   calories: number
-  protein: number // in grams
-  carbohydrates: number // in grams
-  fat: number // in grams
+  protein: number
+  carbohydrates: number
+  fat: number
+  detailedNutrients: DetailedNutrient[]
 }
 
 export interface CostBreakdown {
-  totalCost: number // in USD
+  totalCost: number
   perServing: number
+  ingredientCosts: {
+    name: string
+    cost: number
+  }[]
+}
+
+export interface HealthierOption {
+  originalIngredient: string
+  isHealthy: boolean
+  suggestion: string
+}
+
+export interface PurchaseLocation {
+  name: string
+  description: string
+  url: string
+}
+
+export interface PurchaseLocations {
+  restaurants: PurchaseLocation[]
+  stores: PurchaseLocation[]
+}
+
+export interface DailyGoals {
+  calories: number
+  protein: number
+  carbohydrates: number
+  fat: number
 }
 
 export interface FitnessGoalAnalysis {
-  tdee: number // Total Daily Energy Expenditure
-  goalCalories: number
-  feedback: string
+  healthScore: number
+  mealSummary: string
+  positivePoints: string[]
+  areasForImprovement: string[]
+  generalTips: string[]
+  healthierOptions: HealthierOption[]
+  dailyGoals: DailyGoals
 }
 
 export interface FoodIntelligenceReport {
@@ -42,6 +92,8 @@ export interface FoodIntelligenceReport {
   nutritionalProfile: NutritionalProfile
   costBreakdown: CostBreakdown
   fitnessGoalAnalysis: FitnessGoalAnalysis
+  purchaseLocations: PurchaseLocations
+  debugInfo?: string[]
 }
 
 export type SuccessResponse = {
@@ -52,6 +104,7 @@ export type SuccessResponse = {
 export type ErrorResponse = {
   status: "error"
   message: string
+  debugInfo?: string[]
 }
 
 export type ApiResponse = SuccessResponse | ErrorResponse

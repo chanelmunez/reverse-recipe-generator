@@ -52,44 +52,46 @@ export default function HomePage() {
         body: formData,
       })
 
+      // First, get the response body as text to avoid JSON parsing errors on non-JSON responses.
+      const responseText = await response.text()
+
       if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(errorText || `Request failed with status ${response.status}`)
+        // If the server returned an error, try to parse it as our structured error.
+        // If that fails, use the raw text as the error message.
+        try {
+          const errorJson = JSON.parse(responseText)
+          throw new Error(errorJson.message || "An unknown API error occurred.")
+        } catch {
+          throw new Error(responseText || `Request failed with status ${response.status}`)
+        }
       }
 
-      const result: ApiResponse = await response.json()
+      const result: ApiResponse = JSON.parse(responseText)
 
       if (result.status === "success") {
         localStorage.setItem(`report-${result.data.id}`, JSON.stringify(result.data))
         router.push(`/report/${result.data.id}`)
       } else {
+        // This handles cases where the API returns a 200 OK status but with a logical error.
         setError(result.message)
         setIsLoading(false)
-        submissionTriggered.current = false // Allow re-triggering on error
       }
     } catch (err) {
       console.error("An error occurred during form submission:", err)
-      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred."
-      try {
-        const parsedError = JSON.parse(errorMessage)
-        setError(parsedError.message || "An unexpected error occurred. Please try again.")
-      } catch {
-        setError("An unexpected error occurred. Please try again.")
-      }
+      const displayMessage = err instanceof Error ? err.message : "An unknown error occurred."
+      setError(displayMessage)
       setIsLoading(false)
-      submissionTriggered.current = false // Allow re-triggering on error
     }
   }
 
-  // Effect to trigger submission automatically
   useEffect(() => {
+    submissionTriggered.current = false
     if (isFormSubmittable && !isLoading) {
       generateReport()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFormSubmittable, isLoading, userProfile, imageFile])
+  }, [userProfile, imageFile])
 
-  // This is still useful for accessibility (e.g., pressing Enter in a field)
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     generateReport()
@@ -108,7 +110,6 @@ export default function HomePage() {
           <ImageUploader onImageUpload={setImageFile} disabled={isLoading} />
         </form>
 
-        {/* Status Indicator */}
         <div className="mt-8 text-center h-16 flex items-center justify-center">
           {isLoading ? (
             <div className="flex items-center text-muted-foreground">
