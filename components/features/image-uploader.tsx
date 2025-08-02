@@ -14,7 +14,7 @@ interface ImageUploaderProps {
 }
 
 export function ImageUploader({ onImageUpload, disabled = false }: ImageUploaderProps) {
-  const [inputType, setInputType] = useState<"upload" | "url">("upload")
+  const [inputType, setInputType] = useState<"upload" | "camera" | "url">("upload")
   const [preview, setPreview] = useState<string | null>(null)
   const [url, setUrl] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -98,16 +98,20 @@ export function ImageUploader({ onImageUpload, disabled = false }: ImageUploader
       <CardContent>
         <RadioGroup
           defaultValue="upload"
-          onValueChange={(value: "upload" | "url") => {
-            setInputType(value)
+          onValueChange={(value: "upload" | "camera" | "url") => {
+            setInputType(value as "upload" | "camera" | "url")
             handleRemoveImage() // Reset when switching modes
           }}
-          className="mb-4 flex space-x-4"
+          className="mb-4 flex flex-wrap gap-4"
           disabled={disabled}
         >
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="upload" id="upload" />
-            <Label htmlFor="upload">Upload File</Label>
+            <Label htmlFor="upload">Choose File</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="camera" id="camera" />
+            <Label htmlFor="camera">Take Photo</Label>
           </div>
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="url" id="url" />
@@ -115,15 +119,40 @@ export function ImageUploader({ onImageUpload, disabled = false }: ImageUploader
           </div>
         </RadioGroup>
 
+        {/* Helper text for mobile users */}
+        {inputType === "camera" && (
+          <p className="text-sm text-muted-foreground mb-3">
+            📱 On mobile: This will open your camera to take a photo directly
+          </p>
+        )}
+        {inputType === "upload" && (
+          <p className="text-sm text-muted-foreground mb-3">
+            📁 Choose from your device's files or photo gallery
+          </p>
+        )}
+
         {inputType === "upload" ? (
           <Input
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            capture="environment" // FIX: Add capture attribute for mobile camera access
             onChange={handleFileChange}
             disabled={disabled}
           />
+        ) : inputType === "camera" ? (
+          <div>
+            <Input
+              type="file"
+              accept="image/*"
+              capture="environment" // Mobile camera access - rear camera preferred
+              onChange={handleFileChange}
+              disabled={disabled}
+              className="mb-2"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              💡 Tip: Point your camera at the meal for best results
+            </p>
+          </div>
         ) : (
           <div className="flex gap-2">
             <Input
