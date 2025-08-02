@@ -1,19 +1,24 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { ImageUploader } from "@/components/features/image-uploader"
 import { UserProfileForm } from "@/components/features/user-profile-form"
 import { useUserProfile } from "@/hooks/use-user-profile"
-import { Button } from "@/components/ui/button"
+import { Loader2 } from "lucide-react"
 import type { UserProfile, ApiResponse } from "@/types"
 
 function isProfileComplete(profile: UserProfile): boolean {
+  const isMetricComplete = profile.unitSystem === "metric" && profile.height
+  const isImperialComplete =
+    profile.unitSystem === "imperial" && profile.height && typeof profile.heightInches === "number"
+  const isHeightComplete = isMetricComplete || isImperialComplete
+
   return !!(
     profile.age &&
     profile.weight &&
-    profile.height &&
+    isHeightComplete &&
     profile.sex &&
     profile.activityLevel &&
     profile.fitnessGoal
@@ -26,13 +31,14 @@ export default function HomePage() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const submissionTriggered = useRef(false)
 
   const isFormSubmittable = isProfileComplete(userProfile) && !!imageFile
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!isFormSubmittable) return
+  const generateReport = async () => {
+    if (!isFormSubmittable || submissionTriggered.current) return
 
+    submissionTriggered.current = true
     setIsLoading(true)
     setError(null)
 
@@ -46,9 +52,7 @@ export default function HomePage() {
         body: formData,
       })
 
-      // Check if the response is ok before trying to parse JSON
       if (!response.ok) {
-        // Try to get a specific error message from the server, otherwise use a default.
         const errorText = await response.text()
         throw new Error(errorText || `Request failed with status ${response.status}`)
       }
@@ -60,21 +64,35 @@ export default function HomePage() {
         router.push(`/report/${result.data.id}`)
       } else {
         setError(result.message)
+        setIsLoading(false)
+        submissionTriggered.current = false // Allow re-triggering on error
       }
     } catch (err) {
-      // Log the actual error to the console for better debugging.
       console.error("An error occurred during form submission:", err)
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred."
-      // Try to parse a JSON error message from the error text itself
       try {
         const parsedError = JSON.parse(errorMessage)
         setError(parsedError.message || "An unexpected error occurred. Please try again.")
       } catch {
         setError("An unexpected error occurred. Please try again.")
       }
-    } finally {
       setIsLoading(false)
+      submissionTriggered.current = false // Allow re-triggering on error
     }
+  }
+
+  // Effect to trigger submission automatically
+  useEffect(() => {
+    if (isFormSubmittable && !isLoading) {
+      generateReport()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFormSubmittable, isLoading, userProfile, imageFile])
+
+  // This is still useful for accessibility (e.g., pressing Enter in a field)
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    generateReport()
   }
 
   return (
@@ -82,31 +100,29 @@ export default function HomePage() {
       <div className="max-w-2xl mx-auto">
         <header className="text-center mb-8">
           <h1 className="text-3xl font-bold">Reverse Recipe Generator</h1>
-          <p className="text-muted-foreground">Upload a meal photo to get your Food Intelligence Report.</p>
+          <p className="text-muted-foreground">Complete your profile and upload a meal photo to begin.</p>
         </header>
 
         <form onSubmit={handleSubmit} className="space-y-8">
           <UserProfileForm disabled={isLoading} />
           <ImageUploader onImageUpload={setImageFile} disabled={isLoading} />
-
-          <div className="text-center">
-            <Button type="submit" disabled={!isFormSubmittable || isLoading} className="w-full sm:w-auto">
-              {isLoading ? "Analyzing..." : "Generate Report"}
-            </Button>
-          </div>
         </form>
 
-        {isLoading && (
-          <div className="text-center mt-4">
-            <p>Generating your food intelligence report. This may take a moment...</p>
-          </div>
-        )}
-
-        {error && (
-          <div className="mt-4 p-4 border border-destructive bg-destructive/10 text-destructive text-center">
-            <p>{error}</p>
-          </div>
-        )}
+        {/* Status Indicator */}
+        <div className="mt-8 text-center h-16 flex items-center justify-center">
+          {isLoading ? (
+            <div className="flex items-center text-muted-foreground">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              <span>Generating your report... This may take a moment.</span>
+            </div>
+          ) : error ? (
+            <div className="p-4 border border-destructive bg-destructive/10 text-destructive text-center w-full rounded-md">
+              <p>{error}</p>
+            </div>
+          ) : !isFormSubmittable ? (
+            <p className="text-muted-foreground">Please complete all fields to continue.</p>
+          ) : null}
+        </div>
       </div>
     </main>
   )

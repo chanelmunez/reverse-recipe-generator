@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getRecipeFromImage } from "@/lib/apis/vision"
-import { analyzeRecipeWithSpoonacular } from "@/lib/apis/spoonacular"
-import { searchForImage } from "@/lib/apis/google-image-search"
+import { analyzeRecipeWithAI } from "@/lib/analysis/recipe-analyzer"
+import { searchForImage } from "@/lib/apis/google-image-search" // UPDATED
 import { getAIHealthAnalysis } from "@/lib/analysis/health-analyzer"
 import { getHealthierOptions } from "@/lib/analysis/ingredient-analyzer"
 import { getPurchaseLocations } from "@/lib/analysis/purchase-analyzer"
@@ -45,39 +45,37 @@ export async function POST(request: Request) {
     const imageBuffer = await fileToBuffer(imageFile)
     const imageUrl = `data:${imageFile.type};base64,${imageBuffer.toString("base64")}`
 
-    // --- SERIAL STEP 1: Get initial recipe from image ---
     debugLog.push("Step 1: Generating recipe from image with OpenAI Vision...")
-    // UPDATED: The vision response is now the recipe object itself, not nested.
     const recipeFromVision = await getRecipeFromImage(imageBuffer)
     if (!recipeFromVision?.name) {
       throw new Error("The AI model could not generate a recipe from the image.")
     }
     debugLog.push(`[OpenAI Vision] Identified main ingredients: ${recipeFromVision.mainIngredients.join(", ")}`)
 
-    // --- PARALLEL STEP 2: Fetch images for main ingredients while analyzing recipe ---
-    debugLog.push("Step 2: Fetching ingredient images and analyzing recipe in parallel...")
-    const [spoonacularData, mainIngredientImages] = await Promise.all([
-      // UPDATED: Pass the un-nested recipe object to Spoonacular.
-      analyzeRecipeWithSpoonacular(recipeFromVision, debugLog),
+    debugLog.push("Step 2: Fetching ingredient images and analyzing recipe with AI in parallel...")
+    const [aiAnalysis, mainIngredientImages] = await Promise.all([
+      analyzeRecipeWithAI(recipeFromVision, debugLog),
+      // UPDATED: Reverted to using Google Image Search
       Promise.all(
         recipeFromVision.mainIngredients.map(async (name) => ({
           name,
-          imageUrl: await searchForImage(name),
+          imageUrl: await searchForImage(name, debugLog),
         })),
       ),
     ])
-    debugLog.push("Ingredient images and Spoonacular analysis complete.")
+    debugLog.push("Ingredient image search and AI recipe analysis complete.")
 
-    const { nutritionalProfile, costBreakdown } = spoonacularData
+    const { nutritionalProfile, costBreakdown } = aiAnalysis
+
     const recipe: Recipe = {
-      ...recipeFromVision,
-      ingredients: spoonacularData.recipe.ingredients, // Use refined ingredients from Spoonacular
-      mainIngredients: mainIngredientImages, // Add the fetched image URLs
+      name: recipeFromVision.name,
+      steps: recipeFromVision.steps,
+      ingredients: recipeFromVision.ingredients,
+      mainIngredients: mainIngredientImages,
     }
 
     const metricProfile = normalizeProfileToMetric(userProfile)
 
-    // --- PARALLEL STEP 3: Run all final AI analyses concurrently ---
     debugLog.push("Step 3: Running final health, ingredient, and purchase analyses in parallel...")
     const [healthAnalysis, healthierOptions, purchaseLocations] = await Promise.all([
       getAIHealthAnalysis(metricProfile, nutritionalProfile, debugLog),

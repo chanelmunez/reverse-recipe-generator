@@ -1,9 +1,8 @@
 import { generateObject } from "ai"
-import { openai } from "@ai-sdk/openai"
+import { openai } from "@/lib/ai/openai"
 import { z } from "zod"
 import type { PurchaseLocations } from "@/types"
 
-// UPDATED: The schema now includes a URL for each location.
 const PurchaseLocationsSchema = z.object({
   restaurants: z
     .array(
@@ -34,7 +33,6 @@ const PurchaseLocationsSchema = z.object({
 export async function getPurchaseLocations(dishName: string, debugLog: string[]): Promise<PurchaseLocations> {
   debugLog.push(`[Purchase Analyzer] Getting purchase locations for "${dishName}"...`)
 
-  // UPDATED: The prompt now explicitly asks for URLs.
   const systemPrompt = `
     You are a food and retail expert. Your task is to suggest where a user can buy a specific dish or its ingredients.
     The dish is: "${dishName}".

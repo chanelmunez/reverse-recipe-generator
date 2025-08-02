@@ -1,11 +1,10 @@
 import { generateObject } from "ai"
-import { openai } from "@ai-sdk/openai"
+import { openai } from "@/lib/ai/openai"
 import { z } from "zod"
 
 // Define a recipe type for this module's purpose
 export type VisionRecipe = z.infer<typeof RecipeSchema>
 
-// UPDATED: The schema is now a flat object, which is more reliable for the AI to generate.
 const RecipeSchema = z.object({
   name: z.string().describe("The name of the dish."),
   mainIngredients: z
@@ -28,17 +27,12 @@ const RecipeSchema = z.object({
  * @returns {Promise<VisionRecipe>} A promise that resolves to the recipe object.
  */
 export async function getRecipeFromImage(imageBuffer: Buffer): Promise<VisionRecipe> {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("The OPENAI_API_KEY environment variable is not set.")
-  }
-
   try {
     const imageAsBase64 = imageBuffer.toString("base64")
 
     const { object } = await generateObject({
-      model: openai("gpt-4o", { apiKey: process.env.OPENAI_API_KEY }),
+      model: openai("gpt-4o"),
       schema: RecipeSchema,
-      // UPDATED: The prompt is now more direct and API-like to reduce the chance of schema errors.
       system: `
         You are a food analysis API. Your only function is to analyze an image of a meal and return a JSON object.
         Do not include any introductory text, markdown formatting, or explanations.
@@ -59,11 +53,8 @@ export async function getRecipeFromImage(imageBuffer: Buffer): Promise<VisionRec
       ],
     })
 
-    // UPDATED: Return the object directly, not nested.
     return object
   } catch (error) {
-    // The AI SDK's generateObject function throws a detailed error when validation fails.
-    // We log it and re-throw to be handled by the main API route.
     console.error("Error getting recipe from image:", error)
     throw error
   }

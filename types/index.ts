@@ -27,16 +27,29 @@ export interface Recipe {
   }[]
 }
 
+// UPDATED: Added detailedNutrients
+export interface DetailedNutrient {
+  name: string
+  amount: number
+  unit: string
+  percentOfDailyNeeds: number
+}
+
 export interface NutritionalProfile {
   calories: number
   protein: number
   carbohydrates: number
   fat: number
+  detailedNutrients: DetailedNutrient[]
 }
 
 export interface CostBreakdown {
   totalCost: number
   perServing: number
+  ingredientCosts: {
+    name: string
+    cost: number
+  }[]
 }
 
 export interface HealthierOption {
@@ -45,7 +58,6 @@ export interface HealthierOption {
   suggestion: string
 }
 
-// UPDATED: Added url property
 export interface PurchaseLocation {
   name: string
   description: string
@@ -57,6 +69,14 @@ export interface PurchaseLocations {
   stores: PurchaseLocation[]
 }
 
+// UPDATED: Added dailyGoals
+export interface DailyGoals {
+  calories: number
+  protein: number
+  carbohydrates: number
+  fat: number
+}
+
 export interface FitnessGoalAnalysis {
   healthScore: number
   mealSummary: string
@@ -64,6 +84,7 @@ export interface FitnessGoalAnalysis {
   areasForImprovement: string[]
   generalTips: string[]
   healthierOptions: HealthierOption[]
+  dailyGoals: DailyGoals
 }
 
 export interface FoodIntelligenceReport {

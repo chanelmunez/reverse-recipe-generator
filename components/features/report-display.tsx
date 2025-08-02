@@ -20,6 +20,11 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
     report.purchaseLocations &&
     (report.purchaseLocations.restaurants.length > 0 || report.purchaseLocations.stores.length > 0)
 
+  // UPDATED: Destructure daily goals and detailed nutrients
+  const { dailyGoals } = analysis
+  const { nutritionalProfile } = report
+  const hasDetailedNutrients = nutritionalProfile.detailedNutrients && nutritionalProfile.detailedNutrients.length > 0
+
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-500"
     if (score >= 50) return "text-yellow-500"
@@ -34,6 +39,29 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
       </Button>
     </Link>
   )
+
+  // Helper to calculate and format macro percentages
+  const MacroItem = ({
+    label,
+    mealAmount,
+    goalAmount,
+    unit,
+  }: {
+    label: string
+    mealAmount: number
+    goalAmount: number
+    unit: string
+  }) => {
+    const percentage = goalAmount > 0 ? (mealAmount / goalAmount) * 100 : 0
+    return (
+      <li className="flex justify-between items-baseline">
+        <span>
+          <strong>{label}:</strong> {mealAmount.toFixed(1)} {unit}
+        </span>
+        <span className="text-sm font-medium text-muted-foreground">{percentage.toFixed(0)}% of goal</span>
+      </li>
+    )
+  }
 
   return (
     <main className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -59,26 +87,60 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
 
         {/* Top Grid for summary cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {/* UPDATED: Nutritional Profile card with percentages and accordion */}
           <Card>
             <CardHeader>
               <CardTitle>Nutritional Profile</CardTitle>
             </CardHeader>
             <CardContent>
-              {isNutritionEnabled ? (
-                <ul className="space-y-1">
-                  <li>
-                    <strong>Calories:</strong> {report.nutritionalProfile.calories.toFixed(0)}
-                  </li>
-                  <li>
-                    <strong>Protein:</strong> {report.nutritionalProfile.protein.toFixed(1)} g
-                  </li>
-                  <li>
-                    <strong>Carbohydrates:</strong> {report.nutritionalProfile.carbohydrates.toFixed(1)} g
-                  </li>
-                  <li>
-                    <strong>Fat:</strong> {report.nutritionalProfile.fat.toFixed(1)} g
-                  </li>
-                </ul>
+              {isNutritionEnabled && dailyGoals ? (
+                <div className="space-y-3">
+                  <ul className="space-y-1">
+                    <li className="flex justify-between items-baseline">
+                      <span>
+                        <strong>Calories:</strong> {nutritionalProfile.calories.toFixed(0)}
+                      </span>
+                      <span className="text-sm font-medium text-muted-foreground">
+                        {((nutritionalProfile.calories / dailyGoals.calories) * 100).toFixed(0)}% of goal
+                      </span>
+                    </li>
+                    <MacroItem
+                      label="Protein"
+                      mealAmount={nutritionalProfile.protein}
+                      goalAmount={dailyGoals.protein}
+                      unit="g"
+                    />
+                    <MacroItem
+                      label="Carbs"
+                      mealAmount={nutritionalProfile.carbohydrates}
+                      goalAmount={dailyGoals.carbohydrates}
+                      unit="g"
+                    />
+                    <MacroItem label="Fat" mealAmount={nutritionalProfile.fat} goalAmount={dailyGoals.fat} unit="g" />
+                  </ul>
+                  {hasDetailedNutrients && (
+                    <Accordion type="single" collapsible className="w-full">
+                      <AccordionItem value="item-1" className="border-b-0">
+                        <AccordionTrigger className="text-sm p-0 hover:no-underline">
+                          View all nutrients
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-2 pb-0 text-xs">
+                          <ul className="space-y-1">
+                            {nutritionalProfile.detailedNutrients.map((nutrient) => (
+                              <li key={nutrient.name} className="flex justify-between">
+                                <span>{nutrient.name}</span>
+                                <span className="font-mono">
+                                  {nutrient.amount.toFixed(1)} {nutrient.unit} ({nutrient.percentOfDailyNeeds}
+                                  %DV)
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  )}
+                </div>
               ) : (
                 <p className="text-muted-foreground">Nutritional data could not be calculated.</p>
               )}
@@ -91,14 +153,33 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
             </CardHeader>
             <CardContent>
               {report.costBreakdown.totalCost > 0 ? (
-                <>
-                  <p>
-                    <strong>Total:</strong> ${report.costBreakdown.totalCost.toFixed(2)}
-                  </p>
-                  <p>
-                    <strong>Per Serving:</strong> ${report.costBreakdown.perServing.toFixed(2)}
-                  </p>
-                </>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Cost</p>
+                    <p className="text-2xl font-bold">${report.costBreakdown.totalCost.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Per Serving</p>
+                    <p className="font-semibold">${report.costBreakdown.perServing.toFixed(2)}</p>
+                  </div>
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="item-1" className="border-b-0">
+                      <AccordionTrigger className="text-sm p-0 hover:no-underline">
+                        View Ingredient Costs
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-2 pb-0">
+                        <ul className="space-y-1 text-xs">
+                          {report.costBreakdown.ingredientCosts.map((item, i) => (
+                            <li key={i} className="flex justify-between">
+                              <span>{item.name}</span>
+                              <span className="font-mono">${item.cost.toFixed(2)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </div>
               ) : (
                 <p className="text-muted-foreground">Cost analysis is not available.</p>
               )}
@@ -195,7 +276,9 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
                 <h3 className="font-semibold mb-2">Full Ingredient List</h3>
                 <ul className="list-disc list-inside space-y-1 mb-4">
                   {report.recipe.ingredients.map((ing, i) => (
-                    <li key={i}>{ing.name}</li>
+                    <li key={i}>
+                      {ing.amount} {ing.name}
+                    </li>
                   ))}
                 </ul>
                 <h3 className="font-semibold mb-2">Steps</h3>

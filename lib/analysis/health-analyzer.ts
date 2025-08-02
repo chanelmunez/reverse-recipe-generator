@@ -1,10 +1,16 @@
 import { generateObject } from "ai"
-import { openai } from "@ai-sdk/openai"
+import { openai } from "@/lib/ai/openai"
 import { z } from "zod"
 import type { UserProfile, NutritionalProfile, FitnessGoalAnalysis } from "@/types"
 
-// Define the schema for the AI's health analysis response
+// UPDATED: Schema now includes dailyGoals.
 const HealthAnalysisSchema = z.object({
+  dailyGoals: z.object({
+    calories: z.number().describe("The user's recommended total daily calorie intake."),
+    protein: z.number().describe("The user's recommended daily protein intake in grams."),
+    carbohydrates: z.number().describe("The user's recommended daily carbohydrate intake in grams."),
+    fat: z.number().describe("The user's recommended daily fat intake in grams."),
+  }),
   healthScore: z
     .number()
     .min(1)
@@ -33,11 +39,13 @@ export async function getAIHealthAnalysis(
   profile: UserProfile,
   mealNutrition: NutritionalProfile,
   debugLog: string[],
-): Promise<FitnessGoalAnalysis> {
+): Promise<Omit<FitnessGoalAnalysis, "healthierOptions">> {
   debugLog.push("[AI Health Analysis] Starting analysis...")
 
+  // UPDATED: Prompt now asks for personalized daily goals.
   const systemPrompt = `
-    You are an expert nutritionist and personal trainer. Your task is to provide a detailed health analysis of a meal based on the user's profile and the meal's nutritional content.
+    You are an expert nutritionist and personal trainer. Your task is to provide a detailed health analysis of a meal and calculate the user's personalized daily dietary goals.
+
     The user's profile is:
     - Age: ${profile.age}
     - Sex: ${profile.sex}
@@ -51,6 +59,9 @@ export async function getAIHealthAnalysis(
     - Protein: ${mealNutrition.protein.toFixed(1)}g
     - Carbohydrates: ${mealNutrition.carbohydrates.toFixed(1)}g
     - Fat: ${mealNutrition.fat.toFixed(1)}g
+
+    First, calculate the user's recommended daily intake for calories, protein (g), carbohydrates (g), and fat (g) based on their profile, activity level, and fitness goal.
+    Then, provide the full health analysis of the meal.
 
     You must respond ONLY with a JSON object that strictly matches the provided schema.
   `
