@@ -1,30 +1,33 @@
 import { generateObject } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
-import type { Recipe } from "@/types"
 
-// Define the schema for the AI's response to generate a full recipe
+// Define a recipe type for this module's purpose
+export type VisionRecipe = z.infer<typeof RecipeSchema>
+
+// UPDATED: The schema is now a flat object, which is more reliable for the AI to generate.
 const RecipeSchema = z.object({
-  recipe: z.object({
-    name: z.string().describe("The name of the dish."),
-    ingredients: z
-      .array(
-        z.object({
-          name: z.string().describe("The common name of the ingredient."),
-          amount: z.string().describe("The quantity of the ingredient in common units (e.g., '1 cup', '150g')."),
-        }),
-      )
-      .describe("A list of ingredients with their amounts."),
-    steps: z.array(z.string()).describe("The steps to prepare the recipe."),
-  }),
+  name: z.string().describe("The name of the dish."),
+  mainIngredients: z
+    .array(z.string())
+    .describe("A list of the 4 to 6 most visually prominent or important ingredients in the dish."),
+  ingredients: z
+    .array(
+      z.object({
+        name: z.string().describe("The common name of the ingredient."),
+        amount: z.string().describe("The quantity of the ingredient in common units (e.g., '1 cup', '150g')."),
+      }),
+    )
+    .describe("A list of all ingredients with their amounts."),
+  steps: z.array(z.string()).describe("The steps to prepare the recipe."),
 })
 
 /**
  * Analyzes an image of a meal and returns a structured recipe object.
  * @param {Buffer} imageBuffer - The buffer of the image to analyze.
- * @returns {Promise<{recipe: Recipe}>} A promise that resolves to the recipe object.
+ * @returns {Promise<VisionRecipe>} A promise that resolves to the recipe object.
  */
-export async function getRecipeFromImage(imageBuffer: Buffer): Promise<{ recipe: Recipe }> {
+export async function getRecipeFromImage(imageBuffer: Buffer): Promise<VisionRecipe> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("The OPENAI_API_KEY environment variable is not set.")
   }
@@ -35,10 +38,14 @@ export async function getRecipeFromImage(imageBuffer: Buffer): Promise<{ recipe:
     const { object } = await generateObject({
       model: openai("gpt-4o", { apiKey: process.env.OPENAI_API_KEY }),
       schema: RecipeSchema,
-      // FIX: Updated the system prompt to be more explicit about the JSON output format
-      // to improve the reliability of the AI's response.
-      system:
-        "You are an expert food analyst. Your task is to analyze the provided image of a meal and generate a recipe for it. You must respond ONLY with a JSON object that strictly matches the provided schema. The JSON object should contain a recipe with a name, a list of ingredients (each with a name and an amount), and the preparation steps. If you cannot identify a meal in the image, you must still provide a valid JSON object with empty strings and arrays for the fields.",
+      // UPDATED: The prompt is now more direct and API-like to reduce the chance of schema errors.
+      system: `
+        You are a food analysis API. Your only function is to analyze an image of a meal and return a JSON object.
+        Do not include any introductory text, markdown formatting, or explanations.
+        Your response must be a single, valid JSON object and nothing else.
+        The JSON object must conform to the provided schema.
+        If you cannot identify the meal, return a JSON object with empty strings and arrays for all fields.
+      `,
       messages: [
         {
           role: "user",
@@ -52,10 +59,12 @@ export async function getRecipeFromImage(imageBuffer: Buffer): Promise<{ recipe:
       ],
     })
 
+    // UPDATED: Return the object directly, not nested.
     return object
   } catch (error) {
+    // The AI SDK's generateObject function throws a detailed error when validation fails.
+    // We log it and re-throw to be handled by the main API route.
     console.error("Error getting recipe from image:", error)
-    // Re-throw the original error to be caught by the API route handler
     throw error
   }
 }

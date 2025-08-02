@@ -21,6 +21,10 @@ export interface Recipe {
     amount: string
   }[]
   steps: string[]
+  mainIngredients: {
+    name: string
+    imageUrl: string
+  }[]
 }
 
 export interface NutritionalProfile {
@@ -35,13 +39,31 @@ export interface CostBreakdown {
   perServing: number
 }
 
-// NEW: Updated to hold the AI-generated health analysis
+export interface HealthierOption {
+  originalIngredient: string
+  isHealthy: boolean
+  suggestion: string
+}
+
+// UPDATED: Added url property
+export interface PurchaseLocation {
+  name: string
+  description: string
+  url: string
+}
+
+export interface PurchaseLocations {
+  restaurants: PurchaseLocation[]
+  stores: PurchaseLocation[]
+}
+
 export interface FitnessGoalAnalysis {
   healthScore: number
   mealSummary: string
   positivePoints: string[]
   areasForImprovement: string[]
   generalTips: string[]
+  healthierOptions: HealthierOption[]
 }
 
 export interface FoodIntelligenceReport {
@@ -51,6 +73,7 @@ export interface FoodIntelligenceReport {
   nutritionalProfile: NutritionalProfile
   costBreakdown: CostBreakdown
   fitnessGoalAnalysis: FitnessGoalAnalysis
+  purchaseLocations: PurchaseLocations
   debugInfo?: string[]
 }
 

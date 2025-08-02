@@ -1,7 +1,9 @@
+import Link from "next/link"
 import type { FoodIntelligenceReport } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { CheckCircle, XCircle, Star } from "lucide-react"
+import { CheckCircle, XCircle, Star, ArrowLeft, Lightbulb, Building, ShoppingCart, ExternalLink } from "lucide-react"
 
 interface ReportDisplayProps {
   report: FoodIntelligenceReport
@@ -9,8 +11,14 @@ interface ReportDisplayProps {
 
 export function ReportDisplay({ report }: ReportDisplayProps) {
   const isNutritionEnabled = report.nutritionalProfile.calories > 0
-  const isCostEnabled = report.costBreakdown.totalCost > 0
+  const hasIngredients = report.recipe.ingredients && report.recipe.ingredients.length > 0
+  const hasMainIngredients = report.recipe.mainIngredients && report.recipe.mainIngredients.length > 0
+  const isAnalysisPossible = isNutritionEnabled && hasIngredients
   const analysis = report.fitnessGoalAnalysis
+  const hasHealthierOptions = analysis.healthierOptions && analysis.healthierOptions.length > 0
+  const hasPurchaseLocations =
+    report.purchaseLocations &&
+    (report.purchaseLocations.restaurants.length > 0 || report.purchaseLocations.stores.length > 0)
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-500"
@@ -18,12 +26,25 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
     return "text-red-500"
   }
 
+  const BackButton = () => (
+    <Link href="/" passHref>
+      <Button variant="outline">
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Generate New Report
+      </Button>
+    </Link>
+  )
+
   return (
     <main className="container mx-auto p-4 sm:p-6 md:p-8">
       <div className="max-w-4xl mx-auto space-y-8">
-        <header className="text-center">
+        <header className="text-center mb-4">
           <h1 className="text-3xl font-bold">Your Food Intelligence Report</h1>
         </header>
+
+        <div className="mb-8">
+          <BackButton />
+        </div>
 
         <Card>
           <CardContent className="p-6">
@@ -36,127 +57,251 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
           </CardContent>
         </Card>
 
-        <div className="grid md:grid-cols-2 gap-8">
+        {/* Top Grid for summary cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           <Card>
             <CardHeader>
-              <CardTitle>Recipe & Preparation</CardTitle>
+              <CardTitle>Nutritional Profile</CardTitle>
             </CardHeader>
             <CardContent>
-              <h3 className="font-semibold mb-2">Ingredients</h3>
-              <ul className="list-disc list-inside space-y-1 mb-4">
-                {report.recipe.ingredients.map((ing, i) => (
-                  <li key={i}>{ing.name}</li>
-                ))}
-              </ul>
-              <h3 className="font-semibold mb-2">Steps</h3>
-              <ol className="list-decimal list-inside space-y-2">
-                {report.recipe.steps.map((step, i) => (
-                  <li key={i}>{step}</li>
-                ))}
-              </ol>
+              {isNutritionEnabled ? (
+                <ul className="space-y-1">
+                  <li>
+                    <strong>Calories:</strong> {report.nutritionalProfile.calories.toFixed(0)}
+                  </li>
+                  <li>
+                    <strong>Protein:</strong> {report.nutritionalProfile.protein.toFixed(1)} g
+                  </li>
+                  <li>
+                    <strong>Carbohydrates:</strong> {report.nutritionalProfile.carbohydrates.toFixed(1)} g
+                  </li>
+                  <li>
+                    <strong>Fat:</strong> {report.nutritionalProfile.fat.toFixed(1)} g
+                  </li>
+                </ul>
+              ) : (
+                <p className="text-muted-foreground">Nutritional data could not be calculated.</p>
+              )}
             </CardContent>
           </Card>
 
-          <div className="space-y-8">
-            <Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Estimated Cost</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {report.costBreakdown.totalCost > 0 ? (
+                <>
+                  <p>
+                    <strong>Total:</strong> ${report.costBreakdown.totalCost.toFixed(2)}
+                  </p>
+                  <p>
+                    <strong>Per Serving:</strong> ${report.costBreakdown.perServing.toFixed(2)}
+                  </p>
+                </>
+              ) : (
+                <p className="text-muted-foreground">Cost analysis is not available.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {hasPurchaseLocations && (
+            <Card className="sm:col-span-2">
               <CardHeader>
-                <CardTitle>Nutritional Profile</CardTitle>
+                <CardTitle>Where to Buy</CardTitle>
               </CardHeader>
-              <CardContent>
-                {isNutritionEnabled ? (
-                  <ul className="space-y-1">
-                    <li>
-                      <strong>Calories:</strong> {report.nutritionalProfile.calories.toFixed(0)} kcal
-                    </li>
-                    <li>
-                      <strong>Protein:</strong> {report.nutritionalProfile.protein.toFixed(1)} g
-                    </li>
-                    <li>
-                      <strong>Carbohydrates:</strong> {report.nutritionalProfile.carbohydrates.toFixed(1)} g
-                    </li>
-                    <li>
-                      <strong>Fat:</strong> {report.nutritionalProfile.fat.toFixed(1)} g
-                    </li>
-                  </ul>
-                ) : (
-                  <p className="text-muted-foreground">Could not calculate nutritional profile.</p>
+              <CardContent className="space-y-4">
+                {report.purchaseLocations.restaurants.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-md mb-2 flex items-center">
+                      <Building className="w-4 h-4 mr-2 text-primary" />
+                      Restaurants
+                    </h3>
+                    <div className="space-y-2">
+                      {report.purchaseLocations.restaurants.map((item, i) => (
+                        <div key={i}>
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-sm text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            {item.name}
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                          <p className="text-xs text-muted-foreground">{item.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {report.purchaseLocations.stores.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-md mb-2 flex items-center">
+                      <ShoppingCart className="w-4 h-4 mr-2 text-primary" />
+                      Grocery Stores
+                    </h3>
+                    <div className="space-y-2">
+                      {report.purchaseLocations.stores.map((item, i) => (
+                        <div key={i}>
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-sm text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            {item.name}
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                          <p className="text-xs text-muted-foreground">{item.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Estimated Cost</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isCostEnabled ? (
-                  <>
-                    <p>
-                      <strong>Total:</strong> ${report.costBreakdown.totalCost.toFixed(2)}
-                    </p>
-                    <p>
-                      <strong>Per Serving:</strong> ${report.costBreakdown.perServing.toFixed(2)}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-muted-foreground">Cost analysis is not available for this recipe.</p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          )}
         </div>
 
+        {/* Full-width sections below */}
         <Card>
           <CardHeader>
-            <CardTitle>AI Health & Fitness Analysis</CardTitle>
+            <CardTitle>Recipe & Preparation</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="text-center p-6 bg-secondary rounded-lg">
-              <div className="text-sm text-muted-foreground">Meal Health Score</div>
-              <div className={`text-6xl font-bold ${getScoreColor(analysis.healthScore)}`}>
-                {analysis.healthScore}
-                <span className="text-3xl">/100</span>
-              </div>
-              <p className="text-lg mt-2">{analysis.mealSummary}</p>
-            </div>
+          <CardContent>
+            {hasIngredients ? (
+              <>
+                {hasMainIngredients && (
+                  <div className="mb-6">
+                    <h3 className="font-semibold mb-3">Key Ingredients</h3>
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 text-center">
+                      {report.recipe.mainIngredients.map((ingredient) => (
+                        <div key={ingredient.name}>
+                          <div className="aspect-square bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+                            <img
+                              src={ingredient.imageUrl || "/placeholder.svg"}
+                              alt={ingredient.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <p className="text-xs mt-1.5 font-medium">{ingredient.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="font-semibold text-lg mb-2 flex items-center">
-                  <CheckCircle className="w-5 h-5 mr-2 text-green-500" />
-                  Positive Points
-                </h3>
-                <ul className="list-disc list-inside space-y-1 pl-4">
-                  {analysis.positivePoints.map((point, i) => (
-                    <li key={i}>{point}</li>
+                <h3 className="font-semibold mb-2">Full Ingredient List</h3>
+                <ul className="list-disc list-inside space-y-1 mb-4">
+                  {report.recipe.ingredients.map((ing, i) => (
+                    <li key={i}>{ing.name}</li>
                   ))}
                 </ul>
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg mb-2 flex items-center">
-                  <XCircle className="w-5 h-5 mr-2 text-red-500" />
-                  Areas for Improvement
-                </h3>
-                <ul className="list-disc list-inside space-y-1 pl-4">
-                  {analysis.areasForImprovement.map((point, i) => (
-                    <li key={i}>{point}</li>
+                <h3 className="font-semibold mb-2">Steps</h3>
+                <ol className="list-decimal list-inside space-y-2">
+                  {report.recipe.steps.map((step, i) => (
+                    <li key={i}>{step}</li>
                   ))}
-                </ul>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-lg mb-2 flex items-center">
-                <Star className="w-5 h-5 mr-2 text-yellow-500" />
-                Personalized Tips
-              </h3>
-              <ul className="list-disc list-inside space-y-1 pl-4">
-                {analysis.generalTips.map((tip, i) => (
-                  <li key={i}>{tip}</li>
-                ))}
-              </ul>
-            </div>
+                </ol>
+              </>
+            ) : (
+              <p className="text-muted-foreground">A recipe could not be determined from the image.</p>
+            )}
           </CardContent>
         </Card>
+
+        {hasHealthierOptions && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Healthier Ingredients</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {analysis.healthierOptions.map((item, i) => (
+                <div key={i} className="flex items-start gap-4">
+                  <div>
+                    {item.isHealthy ? (
+                      <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-1" />
+                    ) : (
+                      <Lightbulb className="w-6 h-6 text-yellow-500 flex-shrink-0 mt-1" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-semibold">{item.originalIngredient}</p>
+                    <p className="text-muted-foreground">{item.suggestion}</p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {isAnalysisPossible ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Health & Fitness Analysis</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="text-center p-6 bg-secondary rounded-lg">
+                <div className="text-sm text-muted-foreground">Meal Health Score</div>
+                <div className={`text-6xl font-bold ${getScoreColor(analysis.healthScore)}`}>
+                  {analysis.healthScore}
+                  <span className="text-3xl">/100</span>
+                </div>
+                <p className="text-lg mt-2">{analysis.mealSummary}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 flex items-center">
+                    <CheckCircle className="w-5 h-5 mr-2 text-green-500" />
+                    Positive Points
+                  </h3>
+                  <ul className="list-disc list-inside space-y-1 pl-4">
+                    {analysis.positivePoints.map((point, i) => (
+                      <li key={i}>{point}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 flex items-center">
+                    <XCircle className="w-5 h-5 mr-2 text-red-500" />
+                    Areas for Improvement
+                  </h3>
+                  <ul className="list-disc list-inside space-y-1 pl-4">
+                    {analysis.areasForImprovement.map((point, i) => (
+                      <li key={i}>{point}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-lg mb-2 flex items-center">
+                  <Star className="w-5 h-5 mr-2 text-yellow-500" />
+                  Personalized Tips
+                </h3>
+                <ul className="list-disc list-inside space-y-1 pl-4">
+                  {analysis.generalTips.map((tip, i) => (
+                    <li key={i}>{tip}</li>
+                  ))}
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Health & Fitness Analysis</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Health analysis could not be performed because the recipe ingredients or nutritional information could
+                not be determined from the image.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {report.debugInfo && (
           <Accordion type="single" collapsible className="w-full">
@@ -172,6 +317,10 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
             </AccordionItem>
           </Accordion>
         )}
+
+        <div className="mt-8 text-center">
+          <BackButton />
+        </div>
       </div>
     </main>
   )

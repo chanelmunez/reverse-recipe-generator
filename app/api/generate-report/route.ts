@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server"
 import { getRecipeFromImage } from "@/lib/apis/vision"
 import { analyzeRecipeWithSpoonacular } from "@/lib/apis/spoonacular"
-import { getAIHealthAnalysis } from "@/lib/analysis/health-analyzer" // UPDATED IMPORT
-import type { UserProfile, ApiResponse, FoodIntelligenceReport, ErrorResponse } from "@/types"
+import { searchForImage } from "@/lib/apis/google-image-search"
+import { getAIHealthAnalysis } from "@/lib/analysis/health-analyzer"
+import { getHealthierOptions } from "@/lib/analysis/ingredient-analyzer"
+import { getPurchaseLocations } from "@/lib/analysis/purchase-analyzer"
+import type { UserProfile, ApiResponse, FoodIntelligenceReport, ErrorResponse, Recipe } from "@/types"
 
 export const maxDuration = 60
 
@@ -42,23 +45,48 @@ export async function POST(request: Request) {
     const imageBuffer = await fileToBuffer(imageFile)
     const imageUrl = `data:${imageFile.type};base64,${imageBuffer.toString("base64")}`
 
-    debugLog.push("Attempting to generate recipe from image with OpenAI Vision...")
-    const visionResponse = await getRecipeFromImage(imageBuffer)
-    if (!visionResponse?.recipe) {
+    // --- SERIAL STEP 1: Get initial recipe from image ---
+    debugLog.push("Step 1: Generating recipe from image with OpenAI Vision...")
+    // UPDATED: The vision response is now the recipe object itself, not nested.
+    const recipeFromVision = await getRecipeFromImage(imageBuffer)
+    if (!recipeFromVision?.name) {
       throw new Error("The AI model could not generate a recipe from the image.")
     }
-    debugLog.push(`[OpenAI Vision] Generated recipe for: ${visionResponse.recipe.name}`)
+    debugLog.push(`[OpenAI Vision] Identified main ingredients: ${recipeFromVision.mainIngredients.join(", ")}`)
 
-    const { recipe, nutritionalProfile, costBreakdown } = await analyzeRecipeWithSpoonacular(
-      visionResponse.recipe,
-      debugLog,
-    )
+    // --- PARALLEL STEP 2: Fetch images for main ingredients while analyzing recipe ---
+    debugLog.push("Step 2: Fetching ingredient images and analyzing recipe in parallel...")
+    const [spoonacularData, mainIngredientImages] = await Promise.all([
+      // UPDATED: Pass the un-nested recipe object to Spoonacular.
+      analyzeRecipeWithSpoonacular(recipeFromVision, debugLog),
+      Promise.all(
+        recipeFromVision.mainIngredients.map(async (name) => ({
+          name,
+          imageUrl: await searchForImage(name),
+        })),
+      ),
+    ])
+    debugLog.push("Ingredient images and Spoonacular analysis complete.")
 
-    debugLog.push(`Normalizing profile from ${userProfile.unitSystem} to metric...`)
+    const { nutritionalProfile, costBreakdown } = spoonacularData
+    const recipe: Recipe = {
+      ...recipeFromVision,
+      ingredients: spoonacularData.recipe.ingredients, // Use refined ingredients from Spoonacular
+      mainIngredients: mainIngredientImages, // Add the fetched image URLs
+    }
+
     const metricProfile = normalizeProfileToMetric(userProfile)
 
-    // UPDATED: Call the new AI-powered health analyzer
-    const fitnessGoalAnalysis = await getAIHealthAnalysis(metricProfile, nutritionalProfile, debugLog)
+    // --- PARALLEL STEP 3: Run all final AI analyses concurrently ---
+    debugLog.push("Step 3: Running final health, ingredient, and purchase analyses in parallel...")
+    const [healthAnalysis, healthierOptions, purchaseLocations] = await Promise.all([
+      getAIHealthAnalysis(metricProfile, nutritionalProfile, debugLog),
+      getHealthierOptions(metricProfile, recipe.ingredients, debugLog),
+      getPurchaseLocations(recipe.name, debugLog),
+    ])
+    debugLog.push("All parallel analyses completed.")
+
+    const fitnessGoalAnalysis = { ...healthAnalysis, healthierOptions }
 
     const report: FoodIntelligenceReport = {
       id: crypto.randomUUID(),
@@ -67,6 +95,7 @@ export async function POST(request: Request) {
       nutritionalProfile,
       costBreakdown,
       fitnessGoalAnalysis,
+      purchaseLocations,
       debugInfo: debugLog,
     }
 
