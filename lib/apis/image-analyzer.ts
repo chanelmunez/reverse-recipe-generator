@@ -4,7 +4,7 @@ import { z } from "zod"
 
 const RecipeSchema = z.object({
   name: z.string().describe("The name of the dish."),
-  description: z.string().describe("A brief, informative 1-2 sentence summary explaining what this dish is conceptually - its origin, cooking method, key characteristics, or culinary style. Focus on the dish as a food concept, not the visual appearance of this specific image."),
+  description: z.string().min(10).describe("REQUIRED: A brief, informative 1-2 sentence summary explaining what this dish is conceptually - its origin, cooking method, key characteristics, or culinary style. Focus on the dish as a food concept, not the visual appearance of this specific image. Must be at least 10 characters long."),
   mainIngredients: z
     .array(z.string())
     .describe("A list of the 4 to 6 most visually prominent or important ingredients in the dish."),
@@ -41,7 +41,7 @@ export async function analyzeImageWithGemini(imageBuffer: Buffer, mimeType: stri
         Your response must be a single, valid JSON object and nothing else.
         The JSON object must conform to the provided schema.
         
-        IMPORTANT: The 'description' field should explain what the identified dish is conceptually - its culinary origin, cooking method, key characteristics, or food category. This should be an informative summary of the dish as a food concept, NOT a description of the visual appearance of this specific uploaded image.
+        IMPORTANT: The 'description' field is REQUIRED and should explain what the identified dish is conceptually - its culinary origin, cooking method, key characteristics, or food category. This should be an informative 1-2 sentence summary of the dish as a food concept, NOT a description of the visual appearance of this specific uploaded image. Always provide a meaningful description - never leave this field empty.
         
         If you cannot identify the meal, return a JSON object with empty strings and arrays for all fields.
       `,
@@ -51,7 +51,7 @@ export async function analyzeImageWithGemini(imageBuffer: Buffer, mimeType: stri
           content: [
             {
               type: "text",
-              text: "Analyze the attached image and provide a recipe and ingredient list. In the 'description' field, provide a brief summary explaining what this dish is conceptually - its culinary background, cooking method, or key characteristics as a food concept.",
+              text: "Analyze the attached image and provide a recipe and ingredient list. IMPORTANT: You must always provide a meaningful 'description' field that explains what this dish is conceptually - its culinary background, cooking method, or key characteristics as a food concept. Never leave the description empty.",
             },
             {
               type: "image",
