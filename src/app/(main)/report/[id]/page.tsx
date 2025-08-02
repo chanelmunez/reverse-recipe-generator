@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { ReportDisplay } from "../../../../components/features/report-display"
-import type { FoodIntelligenceReport } from "../../../../types"
+import { ReportDisplay } from "@/components/features/report-display"
+import type { FoodIntelligenceReport } from "@/types"
 
 export default function ReportPage() {
   const params = useParams()
