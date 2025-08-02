@@ -109,19 +109,84 @@ export class StorageManager {
   }
 
   /**
-   * Store a report with automatic cleanup
+   * Store a full report initially (includes main image for first-time viewing)
    */
-  static storeReport(reportId: string, reportData: any): void {
-    // Add timestamp to report data for better tracking
-    const dataWithTimestamp = {
+  static storeFullReport(reportId: string, reportData: any): void {
+    // Store the full report data initially with main image
+    const fullReportData = {
       ...reportData,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      isFirstView: true // Flag to indicate this is the first view
     };
 
     const key = this.createReportKey(reportId);
-    const value = JSON.stringify(dataWithTimestamp);
+    const value = JSON.stringify(fullReportData);
     
     this.setItem(key, value);
+  }
+
+  /**
+   * Store a report with automatic cleanup (excludes large image data)
+   */
+  static storeReport(reportId: string, reportData: any): void {
+    // Create optimized report data without the large main image
+    const optimizedReportData = {
+      ...reportData,
+      // Remove the large base64 image data to save space
+      imageUrl: null, // Will be replaced with placeholder when loaded
+      timestamp: Date.now(),
+      isFirstView: false,
+      // Keep all other data including ingredient thumbnails
+      recipe: reportData.recipe ? {
+        ...reportData.recipe,
+        // Keep ingredient thumbnails as they're smaller
+        mainIngredients: reportData.recipe.mainIngredients || []
+      } : reportData.recipe
+    };
+
+    const key = this.createReportKey(reportId);
+    const value = JSON.stringify(optimizedReportData);
+    
+    this.setItem(key, value);
+  }
+
+  /**
+   * Get a report from storage and optimize it after first view
+   */
+  static getReport(reportId: string): any | null {
+    try {
+      const key = this.createReportKey(reportId);
+      const storedData = localStorage.getItem(key);
+      
+      if (!storedData) {
+        return null;
+      }
+
+      const reportData = JSON.parse(storedData);
+      
+      // If this is the first view, show the main image and then optimize storage
+      if (reportData.isFirstView) {
+        // Keep the main image for first-time viewing
+        // Schedule optimization for after this view
+        setTimeout(() => {
+          this.storeReport(reportId, reportData);
+        }, 1000); // Delay to ensure the page has loaded
+        
+        return {
+          ...reportData,
+          isFirstView: false
+        };
+      } else {
+        // Subsequent views: no main image
+        return {
+          ...reportData,
+          imageUrl: null
+        };
+      }
+    } catch (error) {
+      console.error('Error retrieving report from storage:', error);
+      return null;
+    }
   }
 
   /**

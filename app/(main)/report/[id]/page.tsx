@@ -12,20 +12,26 @@ export default function ReportPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (id) {
-      try {
-        const storedReport = localStorage.getItem(`report-${id}`)
-        if (storedReport) {
-          const reportData = JSON.parse(storedReport)
-          // Handle both old format (without timestamp) and new format (with timestamp)
-          setReport(reportData.timestamp ? reportData : reportData)
-        } else {
-          setError("Report not found. It might have expired or was automatically cleaned up to free storage space.")
+    async function loadReport() {
+      if (id) {
+        try {
+          // Use StorageManager which automatically handles first-time vs subsequent viewing
+          const { StorageManager } = await import("@/lib/storage-manager")
+          const reportData = StorageManager.getReport(id)
+          
+          if (reportData) {
+            setReport(reportData)
+          } else {
+            setError("Report not found. It might have expired or was automatically cleaned up to free storage space.")
+          }
+        } catch (e) {
+          console.error('Error loading report:', e)
+          setError("Failed to load the report data.")
         }
-      } catch (e) {
-        setError("Failed to load the report data.")
       }
     }
+    
+    loadReport()
   }, [id])
 
   if (error) {

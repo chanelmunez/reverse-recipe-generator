@@ -4,6 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { CheckCircle, XCircle, Star, ArrowLeft, Lightbulb, Building, ShoppingCart, ExternalLink } from "lucide-react"
+import { InteractiveIngredient } from "@/components/features/interactive-ingredient"
+import { useUserProfile } from "@/hooks/use-user-profile"
+
 
 interface ReportDisplayProps {
   report: FoodIntelligenceReport
@@ -76,12 +79,24 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
 
         <Card>
           <CardContent className="p-6">
-            <img
-              src={report.imageUrl || "/placeholder.svg"}
-              alt={report.recipe.name}
-              className="w-full h-auto max-h-96 object-cover rounded-md mb-6"
-            />
+            {report.imageUrl && (
+              <img
+                src={report.imageUrl}
+                alt={report.recipe.name}
+                className="w-full h-auto max-h-96 object-cover rounded-md mb-6"
+              />
+            )}
             <h2 className="text-2xl font-semibold">{report.recipe.name}</h2>
+            {report.recipe.description && (
+              <p className="text-muted-foreground mt-2 text-base italic">
+                {report.recipe.description}
+              </p>
+            )}
+            {!report.imageUrl && (
+              <p className="text-muted-foreground mt-2 text-sm">
+                Recipe analysis from uploaded image
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -258,16 +273,10 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
                     <h3 className="font-semibold mb-3">Key Ingredients</h3>
                     <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 text-center">
                       {report.recipe.mainIngredients.map((ingredient) => (
-                        <div key={ingredient.name}>
-                          <div className="aspect-square bg-muted rounded-lg flex items-center justify-center overflow-hidden">
-                            <img
-                              src={ingredient.imageUrl || "/placeholder.svg"}
-                              alt={ingredient.name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <p className="text-xs mt-1.5 font-medium">{ingredient.name}</p>
-                        </div>
+                        <InteractiveIngredient
+                          key={ingredient.name}
+                          ingredient={ingredient}
+                        />
                       ))}
                     </div>
                   </div>

@@ -12,7 +12,7 @@ const initialProfile: UserProfile = {
   sex: "",
   activityLevel: "",
   fitnessGoal: "",
-  unitSystem: "metric", // Default to metric
+  unitSystem: "imperial", // Default to imperial
 }
 
 const STORAGE_KEY = "userProfile"
@@ -24,10 +24,10 @@ export function useUserProfile(): [UserProfile, React.Dispatch<React.SetStateAct
     }
     try {
       const item = window.localStorage.getItem(STORAGE_KEY)
-      // Ensure the loaded profile has a unitSystem, defaulting to metric if not
+      // Ensure the loaded profile has a unitSystem, defaulting to imperial if not
       const parsed = item ? JSON.parse(item) : initialProfile
       if (!parsed.unitSystem) {
-        parsed.unitSystem = "metric"
+        parsed.unitSystem = "imperial"
       }
       return parsed
     } catch (error) {

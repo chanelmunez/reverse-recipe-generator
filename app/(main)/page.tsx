@@ -12,7 +12,7 @@ import type { UserProfile, ApiResponse } from "@/types"
 function isProfileComplete(profile: UserProfile): boolean {
   const isMetricComplete = profile.unitSystem === "metric" && profile.height
   const isImperialComplete =
-    profile.unitSystem === "imperial" && profile.height && typeof profile.heightInches === "number"
+    profile.unitSystem === "imperial" && profile.height && profile.heightInches !== null && profile.heightInches !== undefined
   const isHeightComplete = isMetricComplete || isImperialComplete
 
   return !!(
@@ -69,9 +69,10 @@ export default function HomePage() {
       const result: ApiResponse = JSON.parse(responseText)
 
       if (result.status === "success") {
-        // Use StorageManager to handle localStorage quota automatically
+        // Store the full report initially in localStorage for first-time viewing
         const { StorageManager } = await import("@/lib/storage-manager")
-        StorageManager.storeReport(result.data.id, result.data)
+        StorageManager.storeFullReport(result.data.id, result.data)
+        
         router.push(`/report/${result.data.id}`)
       } else {
         // This handles cases where the API returns a 200 OK status but with a logical error.

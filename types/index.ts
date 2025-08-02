@@ -16,6 +16,7 @@ export interface UserProfile {
 
 export interface Recipe {
   name: string
+  description: string
   ingredients: {
     name: string
     amount: string
