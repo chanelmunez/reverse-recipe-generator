@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React, { useState, useEffect } from "react"
 import { useUserProfile } from "@/hooks/use-user-profile"
 import type { UnitSystem } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,6 +13,11 @@ interface UserProfileFormProps {
 }
 
 export function UserProfileForm({ disabled = false }: UserProfileFormProps) {
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
   const [userProfile, setUserProfile] = useUserProfile()
   const isMetric = userProfile.unitSystem === "metric"
 
@@ -34,6 +39,11 @@ export function UserProfileForm({ disabled = false }: UserProfileFormProps) {
 
   const handleSelectChange = (name: keyof typeof userProfile) => (value: string) => {
     setUserProfile((prev) => ({ ...prev, [name]: value }))
+  }
+
+  if (!isClient) {
+    // You can render a loader or skeleton here if you want
+    return null
   }
 
   return (
