@@ -1,0 +1,12 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fork handle -->
+  <rect x="14" y="16" width="4" height="14" fill="#0C2340" rx="2"/>
+  
+  <!-- Fork prongs -->
+  <rect x="8" y="2" width="3" height="16" fill="#E87722" rx="1.5"/>
+  <rect x="13.5" y="2" width="3" height="16" fill="#E87722" rx="1.5"/>
+  <rect x="19" y="2" width="3" height="16" fill="#E87722" rx="1.5"/>
+  
+  <!-- Fork base connecting prongs to handle -->
+  <rect x="8" y="14" width="14" height="4" fill="#0C2340" rx="2"/>
+</svg>
