@@ -5,6 +5,7 @@ import "./globals.css"
 import { cn } from "@/lib/utils"
 import { Analytics } from "@vercel/analytics/react"
 import { Suspense } from "react"
+import { GoogleAnalytics } from "@next/third-parties/google"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -24,6 +25,7 @@ export default function RootLayout({
         <Suspense fallback={null}>
           {children}
           <Analytics />
+          <GoogleAnalytics gaId="G-EH8GZV6VKS" />
         </Suspense>
       </body>
     </html>

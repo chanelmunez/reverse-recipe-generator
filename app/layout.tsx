@@ -3,8 +3,8 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { cn } from "@/lib/utils"
-import { Analytics } from "@vercel/analytics/react"
 import { Suspense } from "react"
+import { GoogleAnalytics } from "@next/third-parties/google"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -24,8 +24,8 @@ export default function RootLayout({
       <body className={cn("min-h-screen bg-background font-sans antialiased", inter.variable)}>
         <Suspense fallback={null}>
           {children}
-          <Analytics />
         </Suspense>
+        <GoogleAnalytics gaId="G-EH8GZV6VKS" />
       </body>
     </html>
   )
