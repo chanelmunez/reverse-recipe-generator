@@ -33,7 +33,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null)
   const submissionTriggered = useRef(false)
 
-  const isFormSubmittable = isProfileComplete(userProfile) && !!imageFile
+  const isFormSubmittable = !!imageFile
 
   const generateReport = async () => {
     if (!isFormSubmittable || submissionTriggered.current) return
@@ -105,7 +105,7 @@ export default function HomePage() {
       <div className="max-w-2xl mx-auto">
         <header className="text-center mb-8">
           <h1 className="text-3xl font-bold">Reverse Recipe Generator</h1>
-          <p className="text-muted-foreground">Complete your profile and upload a meal photo to begin.</p>
+          <p className="text-muted-foreground">Upload a meal photo to begin. Profile information is optional for personalized results.</p>
         </header>
 
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -124,7 +124,7 @@ export default function HomePage() {
               <p>{error}</p>
             </div>
           ) : !isFormSubmittable ? (
-            <p className="text-muted-foreground">Please complete all fields to continue.</p>
+            <p className="text-muted-foreground">Please provide a meal photo to continue.</p>
           ) : null}
         </div>
       </div>

@@ -32,7 +32,7 @@ export async function analyzeImageWithGemini(imageBuffer: Buffer, mimeType: stri
     }
 
     const { object } = await generateObject({
-      model: google("models/gemini-1.5-flash-latest"),
+      model: google("gemini-2.5-flash"),
       schema: RecipeSchema,
       mode: "json",
       system: `
