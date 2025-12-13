@@ -1,3 +1,5 @@
+import { getApiUrl } from "@/lib/utils"
+
 interface IngredientHealthInfo {
   healthBenefits: string
   nutritionalHighlights: string[]
@@ -93,7 +95,7 @@ class IngredientHealthCache {
    * Fetch ingredient health data from API
    */
   private static async fetchFromAPI(ingredient: string): Promise<IngredientHealthInfo> {
-    const response = await fetch("/api/ingredient-health", {
+    const response = await fetch(getApiUrl("/api/ingredient-health"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ingredient })

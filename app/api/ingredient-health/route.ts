@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { generateObject } from "ai"
 import { openai } from "@/lib/ai/openai"
 import { z } from "zod"
+import { corsResponse, handleOptions } from "@/lib/cors"
 
 const IngredientHealthSchema = z.object({
   healthBenefits: z.string().describe("A concise 2-3 sentence summary of the key health benefits of this ingredient, including vitamins, minerals, or other nutritional properties."),
@@ -9,14 +10,20 @@ const IngredientHealthSchema = z.object({
   healthRating: z.enum(["excellent", "good", "moderate", "limited"]).describe("Overall health rating based on nutritional value and health benefits."),
 })
 
+export async function OPTIONS(request: NextRequest) {
+  return handleOptions(request.headers.get("origin"))
+}
+
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get("origin")
+
   try {
     const { ingredient } = await request.json()
 
     if (!ingredient || typeof ingredient !== "string") {
-      return NextResponse.json(
-        { error: "Ingredient name is required" },
-        { status: 400 }
+      return corsResponse(
+        NextResponse.json({ error: "Ingredient name is required" }, { status: 400 }),
+        origin
       )
     }
 
@@ -26,7 +33,7 @@ export async function POST(request: NextRequest) {
       - Key vitamins, minerals, and nutrients
       - Health benefits supported by nutrition science
       - Why this ingredient can be considered healthy
-      
+
       Keep the information concise, positive, and factual. Avoid medical claims or advice.
       The ingredient is: "${ingredient}"
     `
@@ -37,12 +44,12 @@ export async function POST(request: NextRequest) {
       prompt: systemPrompt,
     })
 
-    return NextResponse.json(object)
+    return corsResponse(NextResponse.json(object), origin)
   } catch (error) {
     console.error("Error getting ingredient health info:", error)
-    return NextResponse.json(
-      { error: "Failed to get ingredient health information" },
-      { status: 500 }
+    return corsResponse(
+      NextResponse.json({ error: "Failed to get ingredient health information" }, { status: 500 }),
+      origin
     )
   }
 }

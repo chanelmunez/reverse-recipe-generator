@@ -1,63 +1,71 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { ImageUploader } from "@/components/features/image-uploader"
-import { UserProfileForm } from "@/components/features/user-profile-form"
+import { Page, Navbar, Block, Button, Preloader } from "konsta/react"
+import { Camera, Image, Settings } from "lucide-react"
 import { useUserProfile } from "@/hooks/use-user-profile"
-import { Loader2 } from "lucide-react"
-import type { UserProfile, ApiResponse } from "@/types"
+import type { ApiResponse } from "@/types"
+import { getApiUrl } from "@/lib/utils"
 
-function isProfileComplete(profile: UserProfile): boolean {
-  const isMetricComplete = profile.unitSystem === "metric" && profile.height
-  const isImperialComplete =
-    profile.unitSystem === "imperial" && profile.height && profile.heightInches !== null && profile.heightInches !== undefined
-  const isHeightComplete = isMetricComplete || isImperialComplete
-
-  return !!(
-    profile.age &&
-    profile.weight &&
-    isHeightComplete &&
-    profile.sex &&
-    profile.activityLevel &&
-    profile.fitnessGoal
+// Food plate icon component
+function FoodIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+    >
+      {/* Plate */}
+      <ellipse cx="32" cy="36" rx="26" ry="12" />
+      <ellipse cx="32" cy="36" rx="20" ry="8" />
+      {/* Food items on plate */}
+      <circle cx="26" cy="34" r="4" fill="currentColor" />
+      <circle cx="38" cy="33" r="5" fill="currentColor" />
+      <path d="M30 30 Q32 26 34 30" strokeLinecap="round" />
+      {/* Steam lines */}
+      <path d="M24 24 Q22 20 24 16" strokeLinecap="round" />
+      <path d="M32 22 Q30 18 32 14" strokeLinecap="round" />
+      <path d="M40 24 Q38 20 40 16" strokeLinecap="round" />
+    </svg>
   )
 }
 
 export default function HomePage() {
   const router = useRouter()
   const [userProfile] = useUserProfile()
-  const [imageFile, setImageFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const submissionTriggered = useRef(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
 
-  const isFormSubmittable = !!imageFile
+  // Check if running in Capacitor
+  const isCapacitor = typeof window !== "undefined" && !!(window as any).Capacitor?.isNativePlatform?.()
 
-  const generateReport = async () => {
-    if (!isFormSubmittable || submissionTriggered.current) return
-
-    submissionTriggered.current = true
+  const processImage = async (file: File) => {
     setIsLoading(true)
     setError(null)
 
     const formData = new FormData()
-    formData.append("image", imageFile!)
+    formData.append("image", file)
     formData.append("userProfile", JSON.stringify(userProfile))
 
+    const apiUrl = getApiUrl("/api/generate-report")
+    console.log("Calling API:", apiUrl)
+
     try {
-      const response = await fetch("/api/generate-report", {
+      const response = await fetch(apiUrl, {
         method: "POST",
         body: formData,
       })
 
-      // First, get the response body as text to avoid JSON parsing errors on non-JSON responses.
+      console.log("API response status:", response.status)
       const responseText = await response.text()
+      console.log("API response (first 200 chars):", responseText.slice(0, 200))
 
       if (!response.ok) {
-        // If the server returned an error, try to parse it as our structured error.
-        // If that fails, use the raw text as the error message.
         try {
           const errorJson = JSON.parse(responseText)
           throw new Error(errorJson.message || "An unknown API error occurred.")
@@ -69,65 +77,182 @@ export default function HomePage() {
       const result: ApiResponse = JSON.parse(responseText)
 
       if (result.status === "success") {
-        // Store the full report initially in localStorage for first-time viewing
         const { StorageManager } = await import("@/lib/storage-manager")
         StorageManager.storeFullReport(result.data.id, result.data)
-        
         router.push(`/report/${result.data.id}`)
       } else {
-        // This handles cases where the API returns a 200 OK status but with a logical error.
         setError(result.message)
         setIsLoading(false)
       }
-    } catch (err) {
-      console.error("An error occurred during form submission:", err)
-      const displayMessage = err instanceof Error ? err.message : "An unknown error occurred."
-      setError(displayMessage)
+    } catch (err: any) {
+      console.error("API Error:", err)
+      console.error("Error name:", err?.name)
+      console.error("Error message:", err?.message)
+      console.error("Error stack:", err?.stack)
+
+      let errorMessage = "Failed to analyze image"
+      if (err instanceof TypeError && err.message.includes("fetch")) {
+        errorMessage = "Network error - please check your connection"
+      } else if (err?.message) {
+        errorMessage = err.message
+      }
+
+      setError(errorMessage)
       setIsLoading(false)
     }
   }
 
-  useEffect(() => {
-    submissionTriggered.current = false
-    if (isFormSubmittable && !isLoading) {
-      generateReport()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userProfile, imageFile])
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) processImage(file)
+  }
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    generateReport()
+  const handleCameraCapture = async () => {
+    if (isCapacitor) {
+      try {
+        const { Camera: CapCamera, CameraResultType, CameraSource } = await import("@capacitor/camera")
+        const photo = await CapCamera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.DataUrl,
+          source: CameraSource.Camera,
+          correctOrientation: true,
+        })
+
+        if (!photo.dataUrl) {
+          console.error("No dataUrl in photo response:", JSON.stringify(photo).slice(0, 200))
+          setError("Failed to get image data from camera")
+          return
+        }
+
+        const res = await fetch(photo.dataUrl)
+        const blob = await res.blob()
+        const file = new File([blob], `photo-${Date.now()}.jpg`, { type: blob.type || "image/jpeg" })
+        processImage(file)
+      } catch (err: any) {
+        console.error("Camera error:", err, JSON.stringify(err))
+        if (!err?.message?.includes("cancel") && !err?.message?.includes("User cancelled")) {
+          setError(err?.message || "Failed to capture photo")
+        }
+      }
+    } else {
+      cameraInputRef.current?.click()
+    }
+  }
+
+  const handlePhotoPicker = async () => {
+    if (isCapacitor) {
+      try {
+        const { Camera: CapCamera, CameraResultType, CameraSource } = await import("@capacitor/camera")
+        const photo = await CapCamera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.DataUrl,
+          source: CameraSource.Photos,
+          correctOrientation: true,
+        })
+
+        if (!photo.dataUrl) {
+          console.error("No dataUrl in photo response:", JSON.stringify(photo).slice(0, 200))
+          setError("Failed to get image data from photo")
+          return
+        }
+
+        const res = await fetch(photo.dataUrl)
+        const blob = await res.blob()
+        const file = new File([blob], `photo-${Date.now()}.jpg`, { type: blob.type || "image/jpeg" })
+        processImage(file)
+      } catch (err: any) {
+        console.error("Photo picker error:", err, JSON.stringify(err))
+        if (!err?.message?.includes("cancel") && !err?.message?.includes("User cancelled")) {
+          setError(err?.message || "Failed to select photo")
+        }
+      }
+    } else {
+      fileInputRef.current?.click()
+    }
   }
 
   return (
-    <main className="container mx-auto p-4 sm:p-6 md:p-8">
-      <div className="max-w-2xl mx-auto">
-        <header className="text-center mb-8">
-          <h1 className="text-3xl font-bold">Reverse Recipe Generator</h1>
-          <p className="text-muted-foreground">Upload a meal photo to begin. Profile information is optional for personalized results.</p>
-        </header>
+    <Page>
+      <Navbar
+        title="Recipe"
+        large
+        transparent
+        right={
+          <button
+            className="p-2"
+            onClick={() => router.push("/settings")}
+          >
+            <Settings className="w-6 h-6 text-gray-600" />
+          </button>
+        }
+      />
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          <UserProfileForm disabled={isLoading} />
-          <ImageUploader onImageUpload={setImageFile} disabled={isLoading} />
-        </form>
+      <div className="flex flex-col items-center justify-center px-6 pt-8">
+        {/* Icon and explainer */}
+        <FoodIcon className="w-20 h-20 text-gray-800 mb-6" />
 
-        <div className="mt-8 text-center h-16 flex items-center justify-center">
-          {isLoading ? (
-            <div className="flex items-center text-muted-foreground">
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              <span>Generating your report... This may take a moment.</span>
-            </div>
-          ) : error ? (
-            <div className="p-4 border border-destructive bg-destructive/10 text-destructive text-center w-full rounded-md">
-              <p>{error}</p>
-            </div>
-          ) : !isFormSubmittable ? (
-            <p className="text-muted-foreground">Please provide a meal photo to continue.</p>
-          ) : null}
-        </div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          Food Intelligence
+        </h2>
+        <p className="text-center text-gray-500 mb-10 max-w-xs">
+          Snap a photo of any meal to get nutritional info, recipes, and health insights.
+        </p>
+
+        {/* Action buttons */}
+        {isLoading ? (
+          <div className="flex flex-col items-center gap-4 py-12">
+            <Preloader />
+            <p className="text-gray-500">Analyzing your meal...</p>
+          </div>
+        ) : (
+          <div className="w-full max-w-xs space-y-3">
+            <Button
+              large
+              onClick={handleCameraCapture}
+              className="w-full"
+            >
+              <Camera className="w-5 h-5 mr-2" />
+              Take Photo
+            </Button>
+
+            <Button
+              large
+              outline
+              onClick={handlePhotoPicker}
+              className="w-full"
+            >
+              <Image className="w-5 h-5 mr-2" />
+              Choose from Library
+            </Button>
+          </div>
+        )}
+
+        {/* Error display */}
+        {error && (
+          <div className="mt-6 p-4 bg-red-50 text-red-600 rounded-xl text-sm max-w-xs">
+            {error}
+          </div>
+        )}
+
+        {/* Hidden file inputs for web fallback */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileChange}
+          className="hidden"
+        />
       </div>
-    </main>
+    </Page>
   )
 }

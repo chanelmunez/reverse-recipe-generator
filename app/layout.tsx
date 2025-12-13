@@ -1,17 +1,30 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { cn } from "@/lib/utils"
 import { Suspense } from "react"
 import { GoogleAnalytics } from "@next/third-parties/google"
+import { ClientLayout } from "./client-layout"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
 export const metadata: Metadata = {
-  title: "Reverse Recipe Generator",
+  title: "Recipe",
   description: "Upload a photo of a meal and get a full food intelligence report.",
-    generator: 'v0.dev'
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Recipe",
+  },
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 }
 
 export default function RootLayout({
@@ -21,9 +34,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={cn("min-h-screen bg-background font-sans antialiased", inter.variable)}>
+      <body className={cn("min-h-screen font-sans antialiased", inter.variable)}>
         <Suspense fallback={null}>
-          {children}
+          <ClientLayout>
+            {children}
+          </ClientLayout>
         </Suspense>
         <GoogleAnalytics gaId="G-EH8GZV6VKS" />
       </body>

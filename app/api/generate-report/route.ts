@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { corsResponse, handleOptions } from "@/lib/cors"
 import { analyzeImageWithGemini } from "@/lib/apis/image-analyzer"
 import { analyzeRecipeWithAI } from "@/lib/analysis/recipe-analyzer"
 import { searchForImage } from "@/lib/apis/google-image-search"
@@ -8,6 +9,10 @@ import { getPurchaseLocations } from "@/lib/analysis/purchase-analyzer"
 import type { UserProfile, ApiResponse, FoodIntelligenceReport, ErrorResponse, Recipe } from "@/types"
 
 export const maxDuration = 60
+
+export async function OPTIONS(request: Request) {
+  return handleOptions(request.headers.get("origin"))
+}
 
 function normalizeProfileToMetric(profile: UserProfile): UserProfile {
   if (profile.unitSystem === "imperial") {
@@ -30,6 +35,7 @@ async function fileToBuffer(file: File): Promise<Buffer> {
 }
 
 export async function POST(request: Request) {
+  const origin = request.headers.get("origin")
   const debugLog: string[] = []
 
   try {
@@ -38,7 +44,10 @@ export async function POST(request: Request) {
     const userProfileString = formData.get("userProfile") as string | null
 
     if (!imageFile || !userProfileString) {
-      return NextResponse.json({ status: "error", message: "Missing image or user profile." }, { status: 400 })
+      return corsResponse(
+        NextResponse.json({ status: "error", message: "Missing image or user profile." }, { status: 400 }),
+        origin
+      )
     }
 
     const userProfile: UserProfile = JSON.parse(userProfileString)
@@ -97,12 +106,18 @@ export async function POST(request: Request) {
     }
 
     debugLog.push("Report generation successful.")
-    return NextResponse.json({ status: "success", data: report } as ApiResponse)
+    return corsResponse(
+      NextResponse.json({ status: "success", data: report } as ApiResponse),
+      origin
+    )
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "An unknown server error occurred."
     debugLog.push(`A critical error occurred: ${errorMsg}`)
-    return NextResponse.json({ status: "error", message: errorMsg, debugInfo: debugLog } as ErrorResponse, {
-      status: 500,
-    })
+    return corsResponse(
+      NextResponse.json({ status: "error", message: errorMsg, debugInfo: debugLog } as ErrorResponse, {
+        status: 500,
+      }),
+      origin
+    )
   }
 }
