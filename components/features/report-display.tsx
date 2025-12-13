@@ -4,8 +4,6 @@ import { useRouter } from "next/navigation"
 import type { FoodIntelligenceReport } from "@/types"
 import {
   Page,
-  Navbar,
-  NavbarBackLink,
   Block,
   BlockTitle,
   List,
@@ -27,15 +25,25 @@ import {
   ChefHat,
   Heart,
   Share2,
+  ChevronLeft,
 } from "lucide-react"
 import { InteractiveIngredient } from "@/components/features/interactive-ingredient"
 
 interface ReportDisplayProps {
   report: FoodIntelligenceReport
+  onBack?: () => void
 }
 
-export function ReportDisplay({ report }: ReportDisplayProps) {
+export function ReportDisplay({ report, onBack }: ReportDisplayProps) {
   const router = useRouter()
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack()
+    } else {
+      router.push("/")
+    }
+  }
   const isNutritionEnabled = report.nutritionalProfile.calories > 0
   const hasIngredients = report.recipe.ingredients && report.recipe.ingredients.length > 0
   const hasMainIngredients = report.recipe.mainIngredients && report.recipe.mainIngredients.length > 0
@@ -106,16 +114,20 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
 
   return (
     <Page className="bg-gray-50">
-      <Navbar
-        title={report.recipe.name || "Report"}
-        transparent
-        left={<NavbarBackLink onClick={() => router.push("/")} />}
-        right={
-          <button className="p-2" onClick={handleShare}>
-            <Share2 className="w-5 h-5 text-gray-600" />
+      {/* Custom header with safe area */}
+      <div className="safe-area-top bg-white/90 backdrop-blur-sm sticky top-0 z-20">
+        <div className="flex items-center justify-between px-4 py-3">
+          <button onClick={handleBack} className="p-2 -ml-2">
+            <ChevronLeft className="w-7 h-7 text-gray-700" />
           </button>
-        }
-      />
+          <h1 className="text-lg font-semibold text-gray-900 truncate flex-1 text-center mx-2">
+            {report.recipe.name || "Report"}
+          </h1>
+          <button className="p-2 -mr-2" onClick={handleShare}>
+            <Share2 className="w-6 h-6 text-gray-600" />
+          </button>
+        </div>
+      </div>
 
       {/* Hero Section */}
       <div className="relative">
@@ -135,9 +147,9 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
 
       {/* Health Score Card */}
       {isAnalysisPossible && (
-        <div className="px-4 -mt-6 relative z-10">
-          <div className={`${getScoreBg(analysis.healthScore)} rounded-2xl p-5 shadow-sm`}>
-            <div className="flex items-center justify-between">
+        <div className={`px-4 relative z-10 ${report.imageUrl ? '-mt-6' : 'mt-4'}`}>
+          <div className={`${getScoreBg(analysis.healthScore)} rounded-2xl p-5 shadow-sm border border-gray-200`}>
+            <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Health Score</p>
                 <p className={`text-4xl font-bold ${getScoreColor(analysis.healthScore)}`}>
@@ -148,7 +160,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
                 <Heart className={`w-8 h-8 ${getScoreColor(analysis.healthScore)}`} />
               </div>
             </div>
-            <p className="text-sm text-gray-600 mt-3">{analysis.mealSummary}</p>
+            <p className="text-sm text-gray-600">{analysis.mealSummary}</p>
           </div>
         </div>
       )}
@@ -209,8 +221,8 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
             <h3 className="text-lg font-semibold text-gray-900">Recipe</h3>
           </div>
 
-          <BlockTitle className="mt-2">Ingredients</BlockTitle>
-          <List strongIos insetIos className="!my-0">
+          <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide px-4 mt-2 mb-2">Ingredients</h4>
+          <List strongIos insetIos className="!my-0 !mx-4">
             {report.recipe.ingredients.map((ing, i) => (
               <ListItem
                 key={i}
@@ -220,7 +232,7 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
             ))}
           </List>
 
-          <BlockTitle className="mt-4">Instructions</BlockTitle>
+          <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide px-4 mt-4 mb-2">Instructions</h4>
           <div className="px-4 pb-4">
             {report.recipe.steps.map((step, i) => (
               <div key={i} className="flex gap-3 mb-4">
@@ -285,8 +297,8 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
 
       {/* Healthier Options */}
       {hasHealthierOptions && (
-        <div className="bg-white">
-          <BlockTitle>Swap Suggestions</BlockTitle>
+        <div className="bg-white px-4 pt-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Swap Suggestions</h3>
           <List strongIos insetIos className="!my-0">
             {analysis.healthierOptions.map((item, i) => (
               <ListItem
@@ -310,8 +322,8 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
 
       {/* Where to Buy */}
       {hasPurchaseLocations && (
-        <div className="bg-white">
-          <BlockTitle>Where to Get It</BlockTitle>
+        <div className="bg-white px-4 pt-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Where to Get It</h3>
 
           {report.purchaseLocations.restaurants.length > 0 && (
             <List strongIos insetIos className="!my-0">
@@ -354,8 +366,8 @@ export function ReportDisplay({ report }: ReportDisplayProps) {
       )}
 
       {/* New Report Button */}
-      <Block className="pb-8 bg-white">
-        <Button large rounded onClick={() => router.push("/")}>
+      <Block className="pb-8 bg-white px-4">
+        <Button large rounded onClick={handleBack}>
           Analyze Another Meal
         </Button>
       </Block>

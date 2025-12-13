@@ -121,3 +121,45 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* iOS safe area handling */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 44px);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 34px);
+}
+
+/* Clickable icons and buttons */
+button, [role="button"], .clickable {
+  cursor: pointer;
+}
+
+button:hover, [role="button"]:hover {
+  opacity: 0.8;
+}
+
+/* List item hover effects */
+.k-list li:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* Konsta List styling */
+.k-list {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.k-list li {
+  transition: background-color 0.15s ease;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* Ensure list item content has proper spacing */
+.k-list .item-content {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}

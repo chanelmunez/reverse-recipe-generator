@@ -1,27 +1,37 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Page, Navbar, NavbarBackLink, Block, Preloader } from "konsta/react"
 import { ReportDisplay } from "@/components/features/report-display"
 import type { FoodIntelligenceReport } from "@/types"
 
+// Log immediately when module loads
+if (typeof window !== 'undefined') {
+  console.log("=== REPORT CLIENT MODULE LOADED ===")
+}
+
 export default function ReportPageClient() {
-  const params = useParams()
+  console.log("=== ReportPageClient FUNCTION CALLED ===")
   const router = useRouter()
-  // Catch-all route: slug is an array, first element is the report ID
-  const slug = params.slug as string[]
-  const id = slug?.[0]
   const [report, setReport] = useState<FoodIntelligenceReport | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    console.log("=== Report page useEffect running ===")
+
+    // Get report ID from localStorage (set during navigation)
+    const id = localStorage.getItem('currentReportId')
+    console.log("Got currentReportId from localStorage:", id)
+
     async function loadReport() {
       if (id) {
+        console.log("Loading report for id:", id)
         try {
-          // Use StorageManager which automatically handles first-time vs subsequent viewing
-          const { StorageManager } = await import("@/lib/storage-manager")
-          const reportData = StorageManager.getReport(id)
+          // Use ReportStorage which handles both file and localStorage
+          const { ReportStorage } = await import("@/lib/report-storage")
+          const reportData = await ReportStorage.getReport(id)
+          console.log("Got report data:", reportData ? "yes" : "no")
 
           if (reportData) {
             setReport(reportData)
@@ -36,7 +46,7 @@ export default function ReportPageClient() {
     }
 
     loadReport()
-  }, [id])
+  }, []) // Run once on mount
 
   if (error) {
     return (
@@ -56,7 +66,6 @@ export default function ReportPageClient() {
   if (!report) {
     return (
       <Page>
-        <Navbar title="Loading..." />
         <Block className="flex flex-col items-center justify-center py-12">
           <Preloader />
           <p className="mt-4 text-gray-500">Loading report...</p>

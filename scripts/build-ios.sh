@@ -24,8 +24,9 @@ fi
 # Clean previous build
 rm -rf .next out
 
-# Run the static export build
-STATIC_EXPORT=true pnpm next build
+# Run the static export build with production API URL
+# This overrides the empty NEXT_PUBLIC_API_URL in .env.local
+NEXT_PUBLIC_API_URL=https://recipe.chanelmunezero.com STATIC_EXPORT=true pnpm next build
 
 echo "Syncing to Capacitor iOS..."
 npx cap sync ios

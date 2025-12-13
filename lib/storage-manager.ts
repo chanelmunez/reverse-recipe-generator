@@ -71,28 +71,33 @@ export class StorageManager {
   }
 
   /**
-   * Clean up old items to free space
+   * Check if user wants to keep all reports
+   */
+  static shouldKeepAllReports(): boolean {
+    try {
+      return localStorage.getItem('keepAllReports') === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Clean up old items to free space - removes old reports unless user wants to keep all
    */
   static cleanup(): void {
-    const { used, items } = this.getStorageInfo();
-    
-    if (used < this.MAX_STORAGE_SIZE * this.CLEANUP_THRESHOLD) {
-      return; // No cleanup needed
+    // If user wants to keep all reports, don't auto-cleanup
+    if (this.shouldKeepAllReports()) {
+      console.log('Keep all reports enabled, skipping auto-cleanup');
+      return;
     }
 
-    // Sort by timestamp (oldest first) and prioritize report items for cleanup
-    const sortedItems = items
-      .filter(item => item.key.startsWith('report-')) // Only cleanup report items
-      .sort((a, b) => a.timestamp - b.timestamp);
+    const { items } = this.getStorageInfo();
+
+    // Remove ALL report items to ensure space
+    const reportItems = items.filter(item => item.key.startsWith('report-'));
 
     let freedSpace = 0;
-    const targetFreeSpace = this.MAX_STORAGE_SIZE * 0.3; // Free 30% of max capacity
-
-    for (const item of sortedItems) {
-      if (freedSpace >= targetFreeSpace) {
-        break;
-      }
-
+    for (const item of reportItems) {
       console.log(`Removing old report: ${item.key}`);
       localStorage.removeItem(item.key);
       freedSpace += item.size;
@@ -109,19 +114,20 @@ export class StorageManager {
   }
 
   /**
-   * Store a full report initially (includes main image for first-time viewing)
+   * Store a full report (excludes large base64 image to fit in localStorage)
    */
   static storeFullReport(reportId: string, reportData: any): void {
-    // Store the full report data initially with main image
-    const fullReportData = {
+    // Store report without the large base64 image data
+    const optimizedData = {
       ...reportData,
+      imageUrl: null, // Exclude large base64 image (~3-4MB)
       timestamp: Date.now(),
-      isFirstView: true // Flag to indicate this is the first view
     };
 
     const key = this.createReportKey(reportId);
-    const value = JSON.stringify(fullReportData);
-    
+    const value = JSON.stringify(optimizedData);
+
+    console.log("Storing optimized report, size:", value.length, "bytes");
     this.setItem(key, value);
   }
 

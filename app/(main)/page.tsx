@@ -2,34 +2,31 @@
 
 import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Page, Navbar, Block, Button, Preloader } from "konsta/react"
+import { Page, Navbar, Block, Button, Preloader, Link } from "konsta/react"
 import { Camera, Image, Settings } from "lucide-react"
 import { useUserProfile } from "@/hooks/use-user-profile"
-import type { ApiResponse } from "@/types"
+import type { ApiResponse, FoodIntelligenceReport } from "@/types"
 import { getApiUrl } from "@/lib/utils"
+import { ReportDisplay } from "@/components/features/report-display"
 
-// Food plate icon component
-function FoodIcon({ className }: { className?: string }) {
+// Responsive meal hero image component
+function MealHero({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 64 64"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      className={className}
-    >
-      {/* Plate */}
-      <ellipse cx="32" cy="36" rx="26" ry="12" />
-      <ellipse cx="32" cy="36" rx="20" ry="8" />
-      {/* Food items on plate */}
-      <circle cx="26" cy="34" r="4" fill="currentColor" />
-      <circle cx="38" cy="33" r="5" fill="currentColor" />
-      <path d="M30 30 Q32 26 34 30" strokeLinecap="round" />
-      {/* Steam lines */}
-      <path d="M24 24 Q22 20 24 16" strokeLinecap="round" />
-      <path d="M32 22 Q30 18 32 14" strokeLinecap="round" />
-      <path d="M40 24 Q38 20 40 16" strokeLinecap="round" />
-    </svg>
+    <picture>
+      <source
+        type="image/webp"
+        srcSet="/images/meal-hero-320.webp 320w, /images/meal-hero-640.webp 640w, /images/meal-hero-960.webp 960w"
+        sizes="(max-width: 400px) 320px, (max-width: 800px) 640px, 960px"
+      />
+      <img
+        src="/images/meal-hero-640.png"
+        srcSet="/images/meal-hero-320.png 320w, /images/meal-hero-640.png 640w"
+        sizes="(max-width: 400px) 320px, 640px"
+        alt="Delicious meal"
+        className={className}
+        loading="eager"
+      />
+    </picture>
   )
 }
 
@@ -38,6 +35,7 @@ export default function HomePage() {
   const [userProfile] = useUserProfile()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [report, setReport] = useState<FoodIntelligenceReport | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
@@ -74,14 +72,44 @@ export default function HomePage() {
         }
       }
 
-      const result: ApiResponse = JSON.parse(responseText)
+      let result: ApiResponse = JSON.parse(responseText)
+
+      // CapacitorHttp may wrap response differently - handle both formats
+      if (!result.status && result.data) {
+        // Response might be wrapped: {data: {actual response}}
+        result = { status: "success", data: result.data } as ApiResponse
+      }
+
+      console.log("Parsed result status:", result.status)
 
       if (result.status === "success") {
-        const { StorageManager } = await import("@/lib/storage-manager")
-        StorageManager.storeFullReport(result.data.id, result.data)
-        router.push(`/report/${result.data.id}`)
+        console.log("Success! Showing report inline")
+
+        // Save report to persistent storage
+        const { ReportStorage } = await import("@/lib/report-storage")
+        await ReportStorage.saveReport(result.data)
+
+        // For Capacitor: show report inline (avoids navigation/hydration issues)
+        // For web: can navigate or show inline
+        if (isCapacitor) {
+          setReport(result.data)
+          setIsLoading(false)
+        } else {
+          localStorage.setItem("currentReportId", result.data.id)
+          router.push(`/report/${result.data.id}`)
+        }
       } else {
-        setError(result.message)
+        // Map API error messages to user-friendly messages
+        let errorMessage = result.message || "Something went wrong. Please try again."
+        const msg = errorMessage.toLowerCase()
+
+        if (msg.includes("no object generated") || msg.includes("did not match schema")) {
+          errorMessage = "Couldn't identify a meal in this image. Please try a clearer photo of food."
+        } else if (msg.includes("no food") || msg.includes("not food")) {
+          errorMessage = "No meal detected. Please take a photo of food."
+        }
+
+        setError(errorMessage)
         setIsLoading(false)
       }
     } catch (err: any) {
@@ -90,11 +118,20 @@ export default function HomePage() {
       console.error("Error message:", err?.message)
       console.error("Error stack:", err?.stack)
 
-      let errorMessage = "Failed to analyze image"
-      if (err instanceof TypeError && err.message.includes("fetch")) {
-        errorMessage = "Network error - please check your connection"
-      } else if (err?.message) {
-        errorMessage = err.message
+      // Map technical errors to user-friendly messages
+      let errorMessage = "Unable to analyze this image. Please try another photo."
+      const errMsg = err?.message?.toLowerCase() || ""
+
+      if (err instanceof TypeError && errMsg.includes("fetch")) {
+        errorMessage = "Network error. Please check your connection and try again."
+      } else if (errMsg.includes("no object generated") || errMsg.includes("did not match schema")) {
+        errorMessage = "Couldn't identify a meal in this image. Please try a clearer photo of food."
+      } else if (errMsg.includes("no food") || errMsg.includes("not food")) {
+        errorMessage = "No meal detected. Please take a photo of food."
+      } else if (errMsg.includes("timeout") || errMsg.includes("timed out")) {
+        errorMessage = "Request timed out. Please try again."
+      } else if (errMsg.includes("rate limit") || errMsg.includes("too many")) {
+        errorMessage = "Too many requests. Please wait a moment and try again."
       }
 
       setError(errorMessage)
@@ -173,28 +210,32 @@ export default function HomePage() {
     }
   }
 
+  // If we have a report, show it
+  if (report) {
+    return <ReportDisplay report={report} onBack={() => setReport(null)} />
+  }
+
   return (
     <Page>
-      <Navbar
-        title="Recipe"
-        large
-        transparent
-        right={
+      {/* Custom header with safe area */}
+      <div className="safe-area-top bg-white">
+        <div className="max-w-xs mx-auto w-full flex items-center justify-between px-4 py-3">
+          <h1 className="text-xl font-semibold">Forked</h1>
           <button
-            className="p-2"
             onClick={() => router.push("/settings")}
+            className="p-2 -mr-2"
           >
-            <Settings className="w-6 h-6 text-gray-600" />
+            <Settings className="w-8 h-8 text-gray-700" />
           </button>
-        }
-      />
+        </div>
+      </div>
 
       <div className="flex flex-col items-center justify-center px-6 pt-8">
         {/* Icon and explainer */}
-        <FoodIcon className="w-20 h-20 text-gray-800 mb-6" />
+        <MealHero className="w-32 h-auto mb-6 rounded-2xl" />
 
         <h2 className="text-xl font-semibold text-gray-900 mb-2">
-          Food Intelligence
+          Meal Intelligence
         </h2>
         <p className="text-center text-gray-500 mb-10 max-w-xs">
           Snap a photo of any meal to get nutritional info, recipes, and health insights.
